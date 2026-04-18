@@ -1,0 +1,75 @@
+version: '3.8'
+
+# ============================================================
+# POKIE CAT — Infraestructura completa con Docker Compose
+#
+# Servicios:
+#   db        → PostgreSQL (base de datos)
+#   backend   → Node.js + Express (API REST)
+#   frontend  → React + Nginx (interfaz de usuario)
+#
+# Para levantar todo:  docker compose up --build
+# Para apagar todo:    docker compose down
+# ============================================================
+
+services:
+
+  # ── 1. BASE DE DATOS ───────────────────────────────────────
+  db:
+    image: postgres:15-alpine          # imagen oficial de PostgreSQL
+    container_name: pokie-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"                    # opcional: acceder con DBeaver/pgAdmin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # datos persisten entre reinicios
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql  # crea tablas al inicio
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. BACKEND ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pokie-backend
+    restart: unless-stopped
+    environment:
+      PORT:         4000
+      DB_HOST:      db                 # nombre del servicio de arriba
+      DB_PORT:      5432
+      DB_NAME:      ${DB_NAME}
+      DB_USER:      ${DB_USER}
+      DB_PASSWORD:  ${DB_PASSWORD}
+      JWT_SECRET:   ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy     # espera que PostgreSQL esté listo
+
+  # ── 3. FRONTEND ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL}   # se inyecta al compilar
+    container_name: pokie-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+# ── Volúmenes ─────────────────────────────────────────────────
+volumes:
+  postgres_data:     # almacena los datos de PostgreSQL de forma persistente

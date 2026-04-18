@@ -1,0 +1,78 @@
+-- ============================================================
+-- POKIE CAT — Base de datos PostgreSQL
+-- Este archivo se ejecuta automáticamente cuando Docker
+-- levanta el contenedor de PostgreSQL por primera vez
+-- ============================================================
+
+-- Extensión para generar UUIDs (igual que Supabase)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ============================================================
+-- TABLA: admin_users
+-- Guarda los usuarios administradores del sistema
+-- ============================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+  id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email     VARCHAR(100) UNIQUE NOT NULL,
+  password  VARCHAR(255) NOT NULL,          -- se guardará con bcrypt (hash)
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- TABLA: products
+-- Catálogo de productos de la tienda
+-- ============================================================
+CREATE TABLE IF NOT EXISTS products (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+  price       NUMERIC(10, 2) NOT NULL,
+  stock       INTEGER DEFAULT 0,
+  image_url   TEXT,
+  category    VARCHAR(100),
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- TABLA: orders
+-- Pedidos realizados por clientes
+-- ============================================================
+CREATE TABLE IF NOT EXISTS orders (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_name VARCHAR(255) NOT NULL,
+  customer_email VARCHAR(100),
+  total        NUMERIC(10, 2) NOT NULL,
+  status       VARCHAR(50) DEFAULT 'pendiente',  -- pendiente, completado, cancelado
+  items        JSONB,                             -- lista de productos del pedido
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- TABLA: expenses
+-- Egresos / gastos del negocio
+-- ============================================================
+CREATE TABLE IF NOT EXISTS expenses (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  description VARCHAR(255) NOT NULL,
+  amount      NUMERIC(10, 2) NOT NULL,
+  category    VARCHAR(100),
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- DATOS INICIALES (seed)
+-- ============================================================
+
+-- Admin por defecto: admin@pookiecat.pe / admin123
+-- La contraseña está hasheada con bcrypt (nunca texto plano)
+INSERT INTO admin_users (email, password) VALUES (
+  'admin@pookiecat.pe',
+  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'  -- "admin123"
+) ON CONFLICT (email) DO NOTHING;
+
+-- Productos de ejemplo
+INSERT INTO products (name, description, price, stock, category) VALUES
+  ('Gato Espacial', 'Figura de gato con traje de astronauta', 45.00, 20, 'figuras'),
+  ('Pokie Clásico', 'El muñeco original de Pokie Cat', 35.00, 50, 'muñecos'),
+  ('Taza Pokie', 'Taza cerámica con diseño exclusivo', 25.00, 30, 'accesorios')
+ON CONFLICT DO NOTHING;
