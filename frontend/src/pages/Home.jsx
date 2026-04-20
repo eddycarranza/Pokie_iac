@@ -10,117 +10,77 @@ import { yapeLogo, plinLogo, olvaLogo, shalomLogo } from "../lib/logos";
 const CATALOG_CATS = ["Tops", "Partes de abajo", "Accesorios", "Zapatos"];
 
 // ============ HERO BANNER ============
-
-// ============ HERO BANNER ============
 function HeroBanner({ onShop }) {
-  const [imgs, setImgs] = useState([]);
-  const [current, setCurrent] = useState(0);
-  const [animating, setAnimating] = useState(false);
-
-  useEffect(() => {
-    // Usar fetch directo igual que el resto del proyecto
-    const url = `${process.env.REACT_APP_SUPABASE_URL}/rest/v1/settings?key=eq.banner_images&select=value&limit=1`;
-    const key = process.env.REACT_APP_SUPABASE_ANON_KEY;
-    fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data[0]?.value) {
-          try { setImgs(JSON.parse(data[0].value)); } catch (e) {}
-        }
-      })
-      .catch(() => {}); // Si la tabla no existe, muestra fondo rosa
-  }, []);
-
-  useEffect(() => {
-    if (imgs.length <= 1) return;
-    const timer = setInterval(() => {
-      setAnimating(true);
-      setTimeout(() => { setCurrent(p => (p + 1) % imgs.length); setAnimating(false); }, 400);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, [imgs]);
-
-  const goTo = (i) => {
-    if (i === current) return;
-    setAnimating(true);
-    setTimeout(() => { setCurrent(i); setAnimating(false); }, 400);
-  };
-
-  // Sin imágenes: bloque rosa simple
-  if (imgs.length === 0) {
-    return (
-      <div
-        onClick={onShop}
-        style={{ width: "100%", height: "94vh", minHeight: 400, background: "#f5e6ea", cursor: "pointer" }}
-      />
-    );
-  }
-
   return (
     <div
-      style={{
-        position: "relative", width: "100%",
-        overflow: "hidden", background: "#f5e6ea", cursor: "pointer",
-      }}
       onClick={onShop}
+      style={{
+        width: "100%",
+        height: "94vh",
+        minHeight: 400,
+        background: "linear-gradient(160deg, #fce8f1 0%, #f5e6ea 60%, #f0d8e4 100%)",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "2rem",
+      }}
     >
-      {/* Imagen activa — se adapta al tamaño natural de la foto */}
-      <img
-        src={imgs[current]}
-        alt="Banner"
+      <p style={{
+        fontSize: "clamp(0.7rem, 1.5vw, 0.85rem)",
+        fontFamily: "var(--font)",
+        letterSpacing: "0.3em",
+        textTransform: "uppercase",
+        color: "var(--pink-dark)",
+        marginBottom: "1.5rem",
+        fontWeight: 600,
+      }}>
+        Nueva colección
+      </p>
+      <h1 style={{
+        fontFamily: "var(--font)",
+        fontSize: "clamp(2.8rem, 9vw, 7rem)",
+        fontWeight: 700,
+        color: "var(--dark)",
+        lineHeight: 1,
+        marginBottom: "1.5rem",
+        letterSpacing: "-0.02em",
+      }}>
+        Pookiecat
+      </h1>
+      <p style={{
+        fontFamily: "var(--font)",
+        fontSize: "clamp(0.88rem, 2vw, 1.05rem)",
+        color: "var(--gray)",
+        marginBottom: "2.5rem",
+        maxWidth: 380,
+        lineHeight: 1.7,
+      }}>
+        Ropa kawaii confeccionada con amor para ti
+      </p>
+      <button
+        onClick={e => { e.stopPropagation(); onShop(); }}
         style={{
-          display: "block",
-          width: "100%",
-          height: "auto",
-          opacity: animating ? 0 : 1,
-          transition: "opacity .5s ease",
+          background: "var(--dark)",
+          color: "white",
+          border: "none",
+          padding: "14px 36px",
+          borderRadius: 999,
+          fontFamily: "var(--font)",
+          fontSize: "0.8rem",
+          fontWeight: 600,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          transition: "background 0.2s",
         }}
-      />
-
-      {/* Dots de navegación */}
-      {imgs.length > 1 && (
-        <div style={{
-          position: "absolute", bottom: "1.2rem", left: "50%", transform: "translateX(-50%)",
-          display: "flex", gap: 8, zIndex: 3,
-        }}
-          onClick={e => e.stopPropagation()}
-        >
-          {imgs.map((_, i) => (
-            <button key={i} onClick={() => goTo(i)} style={{
-              width: i === current ? 28 : 8, height: 8, borderRadius: 999, border: "none",
-              cursor: "pointer", padding: 0,
-              background: i === current ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)",
-              transition: "all .35s ease",
-            }} />
-          ))}
-        </div>
-      )}
-
-      {/* Flechas */}
-      {imgs.length > 1 && (
-        <>
-          <button
-            onClick={e => { e.stopPropagation(); goTo((current - 1 + imgs.length) % imgs.length); }}
-            style={{
-              position: "absolute", left: "1.2rem", top: "50%", transform: "translateY(-50%)",
-              width: 40, height: 40, borderRadius: "50%", border: "none", zIndex: 3,
-              background: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: "1.4rem",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            }}
-          >‹</button>
-          <button
-            onClick={e => { e.stopPropagation(); goTo((current + 1) % imgs.length); }}
-            style={{
-              position: "absolute", right: "1.2rem", top: "50%", transform: "translateY(-50%)",
-              width: 40, height: 40, borderRadius: "50%", border: "none", zIndex: 3,
-              background: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: "1.4rem",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            }}
-          >›</button>
-        </>
-      )}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--pink-dark)"}
+        onMouseLeave={e => e.currentTarget.style.background = "var(--dark)"}
+      >
+        Explorar catálogo
+      </button>
     </div>
   );
 }
@@ -242,7 +202,7 @@ function CatalogSection({ products, loading, onSelect, externalCat, onExternalCa
         {/* Sidebar izquierdo — igual que imagen 2 */}
         <div style={{ width: 160, flexShrink: 0, paddingTop: "0.5rem" }} className="catalog-sidebar">
           <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".12em", color: "var(--gray)", marginBottom: "1rem", fontFamily: "var(--font)" }}>
-            Categorias
+            Categorías
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {allCats.map(c => (
