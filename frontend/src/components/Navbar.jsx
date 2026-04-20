@@ -32,7 +32,14 @@ export default function Navbar({ onCatChange }) {
   const [dropOpen, setDropOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [scrolled, setScrolled] = useState(false);
   const dropRef = useRef(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -77,13 +84,21 @@ export default function Navbar({ onCatChange }) {
   };
 
   return (
-    <nav style={{ background: "white", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1000 }}>
+    <nav style={{
+      background: scrolled ? "rgba(255,255,255,0.95)" : "white",
+      backdropFilter: scrolled ? "blur(12px)" : "none",
+      borderBottom: "1px solid var(--border)",
+      position: "sticky", top: 0, zIndex: 1000,
+      transition: "background 0.3s, box-shadow 0.3s",
+      boxShadow: scrolled ? "0 2px 20px rgba(0,0,0,0.06)" : "none",
+    }}>
       <div style={{
         padding: isMobile ? "0 0.5rem" : "0 1.5rem",
         display: "flex", alignItems: "center",
-        height: isMobile ? 64 : 80,
+        height: isMobile ? 60 : (scrolled ? 68 : 76),
         maxWidth: 1440, margin: "0 auto",
-        position: "relative"
+        position: "relative",
+        transition: "height 0.3s",
       }}>
 
         {isMobile ? (
@@ -203,7 +218,7 @@ export default function Navbar({ onCatChange }) {
       {/* Mobile menu */}
       {isMobile && menuOpen && (
         <div style={{
-          position: 'fixed', top: 64, left: 0, right: 0, bottom: 0,
+          position: 'fixed', top: 60, left: 0, right: 0, bottom: 0,
           background: 'white', borderTop: "1px solid var(--border)",
           overflowY: 'auto', zIndex: 999, display: 'flex', flexDirection: 'column',
         }}>
