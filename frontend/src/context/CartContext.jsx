@@ -14,8 +14,7 @@ export function CartProvider({ children }) {
     setCart(prev => {
       const existing = prev.find(i => i.key === key);
       if (!isBackorder && existing && existing.qty + qty > product.stock) {
-        alert(`Solo quedan ${product.stock} unidades en stock.`);
-        return prev;
+        return prev.map(i => i.key === key ? { ...i, qty: product.stock } : i);
       }
       if (existing) return prev.map(i => i.key === key ? { ...i, qty: i.qty + qty } : i);
       return [...prev, {
@@ -33,14 +32,9 @@ export function CartProvider({ children }) {
   const updateQuantity = (key, newQty) => {
     if (newQty < 1) return; 
     setCart(prev => prev.map(i => {
-      if (i.key === key) {
-        if (!i.isBackorder && newQty > i.stock) {
-          alert(`Solo quedan ${i.stock} unidades disponibles.`);
-          return i;
-        }
-        return { ...i, qty: newQty };
-      }
-      return i;
+      if (i.key !== key) return i;
+      const qty = (!i.isBackorder && i.stock > 0) ? Math.min(newQty, i.stock) : newQty;
+      return { ...i, qty };
     }));
   };
 

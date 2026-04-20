@@ -16,6 +16,7 @@ export default function ProductModal({ product, onClose }) {
   const [selectedColor, setSelectedColor] = useState("");
   const [mainImgIdx, setMainImgIdx] = useState(0);
   const [qty, setQty] = useState(1);
+  const [validationMsg, setValidationMsg] = useState("");
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -57,8 +58,15 @@ export default function ProductModal({ product, onClose }) {
   }
 
   const handleAdd = () => {
-    if (availableSizes.length > 0 && !selectedSize) return alert("Por favor, selecciona una talla.");
-    if (availableColors.length > 0 && !selectedColor) return alert("Por favor, selecciona un color.");
+    if (availableSizes.length > 0 && !selectedSize) {
+      setValidationMsg("Por favor, selecciona una talla.");
+      return;
+    }
+    if (availableColors.length > 0 && !selectedColor) {
+      setValidationMsg("Por favor, selecciona un color.");
+      return;
+    }
+    setValidationMsg("");
     addToCart(product, qty, selectedSize, selectedColor, isOutOfStock);
     onClose();
   };
@@ -248,6 +256,13 @@ export default function ProductModal({ product, onClose }) {
               {!isOutOfStock && <span style={{ color: "#aaa" }}>{currentStock} unidades disponibles</span>}
             </div>
 
+
+            {/* Validation message */}
+            {validationMsg && (
+              <div style={{ background: "#fff3f3", border: "1px solid #f5c2c2", borderRadius: 8, padding: "10px 14px", fontSize: "0.83rem", color: "#c0392b", fontFamily: "var(--font)" }}>
+                ⚠ {validationMsg}
+              </div>
+            )}
 
             {/* Button */}
             <button onClick={handleAdd} style={{ padding: "15px", borderRadius: 10, fontSize: "0.9rem", width: "100%", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontFamily: "var(--font)", transition: "all .2s" }} onMouseEnter={e => e.currentTarget.style.background="#333"} onMouseLeave={e => e.currentTarget.style.background="#1a1a1a"}>
