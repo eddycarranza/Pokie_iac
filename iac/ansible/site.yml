@@ -1,0 +1,8 @@
+- name: Despliegue completo de Pokie Cat
+  hosts: all
+  become: yes
+
+  roles:
+    - common
+    - docker
+    - app
