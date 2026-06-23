@@ -1,0 +1,52 @@
+---
+# ============================================================
+# Construye el frontend de React apuntando al API Gateway real, lo sube al
+# bucket S3 e invalida la caché de CloudFront.
+# Lee los datos directamente de los outputs de Terraform.
+# ============================================================
+- name: Desplegar frontend de Pokie Cat (S3 + CloudFront)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Leer outputs de Terraform
+      ansible.builtin.command:
+        cmd: terraform output -json
+        chdir: "{{ tf_dir }}"
+      register: tf_output
+      changed_when: false
+
+    - name: Cargar outputs como variable
+      ansible.builtin.set_fact:
+        tf: "{{ tf_output.stdout | from_json }}"
+
+    - name: Instalar dependencias del frontend
+      ansible.builtin.command:
+        cmd: npm ci
+        chdir: "{{ frontend_dir }}"
+      changed_when: true
+
+    - name: Compilar el frontend (apuntando al API Gateway real)
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: "{{ frontend_dir }}"
+      environment:
+        REACT_APP_API_URL: "{{ tf.api_gateway_url.value }}"
+      changed_when: true
+
+    - name: Sincronizar el build con el bucket S3 del frontend
+      amazon.aws.s3_sync:
+        bucket: "{{ tf.frontend_bucket.value }}"
+        file_root: "{{ frontend_dir }}/build"
+        delete: true
+        region: "{{ aws_region }}"
+
+    - name: Invalidar la caché de CloudFront
+      ansible.builtin.command:
+        cmd: >-
+          aws cloudfront create-invalidation
+          --distribution-id {{ tf.cloudfront_distribution_id.value }}
+          --paths "/*"
+          --region {{ aws_region }}
+      changed_when: true

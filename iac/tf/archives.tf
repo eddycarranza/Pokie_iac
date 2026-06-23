@@ -32,6 +32,10 @@ resource "aws_lambda_code_signing_config" "main" {
   }
 
   policies {
-    untrusted_artifact_on_deployment = "Enforce"
+    # "Warn" permite el despliegue inicial del placeholder y del bundle que
+    # genera Ansible (aún sin firmar). Para máxima seguridad (CKV_AWS_272),
+    # cambia a "Enforce" una vez tengas un pipeline que firme el .zip con el
+    # Signing Profile de arriba antes de subirlo a Lambda.
+    untrusted_artifact_on_deployment = "Warn"
   }
 }

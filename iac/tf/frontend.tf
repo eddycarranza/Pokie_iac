@@ -123,7 +123,9 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
-  aliases             = [var.domain_name]
+  # Solo se asocia el dominio personalizado cuando está habilitado; si no,
+  # CloudFront responde por su dominio por defecto (*.cloudfront.net).
+  aliases = var.enable_custom_domain ? [var.domain_name] : []
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -161,10 +163,14 @@ resource "aws_cloudfront_distribution" "frontend" {
     include_cookies = false
   }
 
+  # Con dominio personalizado se usa el certificado ACM validado; sin él, el
+  # certificado por defecto de CloudFront (evita que el apply falle por un
+  # certificado ACM que no se puede validar sin controlar los NS del dominio).
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate.main.arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = var.enable_custom_domain ? null : true
+    acm_certificate_arn            = var.enable_custom_domain ? aws_acm_certificate_validation.main[0].certificate_arn : null
+    ssl_support_method             = var.enable_custom_domain ? "sni-only" : null
+    minimum_protocol_version       = var.enable_custom_domain ? "TLSv1.2_2021" : null
   }
 
   web_acl_id = aws_wafv2_web_acl.main.arn
@@ -227,7 +233,11 @@ resource "aws_s3_bucket_notification" "access_logs" {
   depends_on = [aws_sns_topic_policy.alerts]
 }
 
+# Certificado solo cuando se usa dominio personalizado. CloudFront exige que
+# el certificado esté en us-east-1 (este módulo ya opera ahí).
 resource "aws_acm_certificate" "main" {
+  count = var.enable_custom_domain ? 1 : 0
+
   domain_name       = var.domain_name
   validation_method = "DNS"
 

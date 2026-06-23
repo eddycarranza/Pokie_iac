@@ -1,0 +1,24 @@
+---
+# ── Variables compartidas por todos los playbooks ───────────────
+# Deben coincidir con las de Terraform (iac/tf/variables.tf).
+aws_region:   "us-east-1"
+project_name: "pokiecat"
+environment:  "prod"
+
+# Rutas relativas al repo (los playbooks viven en ansible/playbooks/).
+repo_root:    "{{ playbook_dir }}/../.."
+backend_dir:  "{{ repo_root }}/backend"
+frontend_dir: "{{ repo_root }}/frontend"
+tf_dir:       "{{ repo_root }}/iac/tf"
+build_dir:    "{{ repo_root }}/.ansible_build"
+
+# Lambdas síncronas (mismas claves que local.sync_lambdas en Terraform).
+lambda_alias: "live"
+sync_lambdas:
+  - auth
+  - catalogo
+  - pedidos
+  - gastos
+
+# Secreto de la BD en Secrets Manager (security_secrets.tf).
+db_secret_name: "{{ project_name }}-db-credentials"

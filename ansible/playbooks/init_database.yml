@@ -1,0 +1,45 @@
+---
+# ============================================================
+# Crea el esquema de la base de datos ejecutando database/init.sql en RDS.
+#
+# ⚠️ IMPORTANTE — conectividad:
+# RDS vive en subredes PRIVADAS (no es accesible desde Internet). Este playbook
+# necesita ruta de red hacia el endpoint. Opciones:
+#   - Túnel SSM port-forwarding contra una instancia/bastión de la VPC, o
+#   - Ejecutarlo desde una instancia dentro de la VPC, o
+#   - Una VPN al VPC.
+# Indica el host/puerto accesible con -e:
+#   ansible-playbook playbooks/init_database.yml -e db_host=127.0.0.1 -e db_port=5432
+# (por defecto usa el endpoint real del secreto, que solo resuelve dentro de la VPC).
+# ============================================================
+- name: Inicializar esquema de la base de datos (RDS)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Leer credenciales de la BD desde Secrets Manager
+      ansible.builtin.command:
+        cmd: >-
+          aws secretsmanager get-secret-value
+          --secret-id {{ db_secret_name }}
+          --query SecretString --output text
+          --region {{ aws_region }}
+      register: db_secret_raw
+      changed_when: false
+      no_log: true
+
+    - name: Parsear credenciales
+      ansible.builtin.set_fact:
+        db: "{{ db_secret_raw.stdout | from_json }}"
+      no_log: true
+
+    - name: Ejecutar database/init.sql contra RDS
+      community.postgresql.postgresql_query:
+        login_host: "{{ db_host | default(db.host) }}"
+        login_port: "{{ db_port | default(db.port) }}"
+        login_user: "{{ db.username }}"
+        login_password: "{{ db.password }}"
+        login_db: "{{ db.dbname }}"
+        path_to_script: "{{ repo_root }}/database/init.sql"
+      no_log: false
