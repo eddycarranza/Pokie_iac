@@ -87,3 +87,11 @@ pokie-iac/
 ├── .env               # variables locales (no subir a git)
 └── .env.example       # plantilla segura para compartir
 ```
+## Contributors
+
+| Usuario | Rol |
+|--------|-----|
+| [@eddycarranza](https://github.com/eddycarranza) | Infraestructura & Backend |
+| [@RenzoCf](https://github.com/RenzoCf) | Infraestructura & Backend |
+| [@rg727876-hub](https://github.com/rg727876-hub) | Infraestructura & Backend |
+| [@Ferchitoide](https://github.com/Ferchitoide) | Infraestructura & Backend |
