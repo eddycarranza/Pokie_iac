@@ -12,11 +12,11 @@ resource "aws_api_gateway_rest_api" "main" {
 }
 
 resource "aws_api_gateway_authorizer" "jwt" {
-  name                   = "${var.project_name}-cognito-authorizer"
-  rest_api_id             = aws_api_gateway_rest_api.main.id
-  type                    = "COGNITO_USER_POOLS"
-  provider_arns           = [aws_cognito_user_pool.main.arn]
-  identity_source         = "method.request.header.Authorization"
+  name            = "${var.project_name}-cognito-authorizer"
+  rest_api_id     = aws_api_gateway_rest_api.main.id
+  type            = "COGNITO_USER_POOLS"
+  provider_arns   = [aws_cognito_user_pool.main.arn]
+  identity_source = "method.request.header.Authorization"
 }
 
 resource "aws_api_gateway_stage" "prod" {
@@ -34,7 +34,7 @@ resource "aws_api_gateway_stage" "prod" {
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gw_logs.arn
-    format          = jsonencode({
+    format = jsonencode({
       requestId = "$context.requestId"
       ip        = "$context.identity.sourceIp"
       status    = "$context.status"
@@ -147,8 +147,8 @@ resource "aws_api_gateway_method_settings" "prod" {
   settings {
     throttling_rate_limit  = 100
     throttling_burst_limit = 50
-    logging_level           = "INFO"
-    metrics_enabled         = true
+    logging_level          = "INFO"
+    metrics_enabled        = true
   }
 }
 
@@ -156,14 +156,27 @@ resource "aws_api_gateway_deployment" "main" {
   rest_api_id = aws_api_gateway_rest_api.main.id
 
   triggers = {
+    # Redesplegar cuando cambie el authorizer, las rutas o los métodos/integraciones.
     redeployment = sha1(jsonencode([
-      aws_api_gateway_authorizer.jwt.id
+      aws_api_gateway_authorizer.jwt.id,
+      local.api_routes,
+      [for k, m in aws_api_gateway_method.any : "${m.resource_id}:${m.http_method}:${m.authorization}"],
+      [for k, i in aws_api_gateway_integration.any : "${i.resource_id}:${i.uri}"],
+      [for k, m in aws_api_gateway_method.cors : "${m.resource_id}:${m.http_method}"],
     ]))
   }
 
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    aws_api_gateway_method.any,
+    aws_api_gateway_integration.any,
+    aws_api_gateway_method.cors,
+    aws_api_gateway_integration.cors,
+    aws_api_gateway_integration_response.cors,
+  ]
 }
 
 resource "aws_cloudwatch_log_group" "api_gw_logs" {

@@ -3,6 +3,16 @@ output "cloudfront_domain" {
   value       = aws_cloudfront_distribution.frontend.domain_name
 }
 
+output "cloudfront_distribution_id" {
+  description = "ID de la distribución CloudFront (para invalidar caché desde Ansible)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "frontend_bucket" {
+  description = "Bucket S3 del frontend (destino del build de React)"
+  value       = aws_s3_bucket.frontend.id
+}
+
 output "api_gateway_url" {
   description = "URL base del API Gateway"
   value       = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}"

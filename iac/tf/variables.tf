@@ -50,3 +50,24 @@ variable "replica_region" {
   type        = string
   default     = "us-west-2"
 }
+
+# Activa el dominio personalizado (Route 53 + ACM + alias en CloudFront).
+# Por defecto false para que el `apply` funcione sin controlar los NS del
+# dominio: CloudFront usa su certificado/dominio por defecto (*.cloudfront.net).
+# Ponlo en true SOLO cuando pookiecat.pe esté registrado y sus nameservers
+# apunten a la hosted zone que crea route53.tf (si no, el apply se queda
+# esperando la validación DNS del certificado ACM).
+variable "enable_custom_domain" {
+  description = "Si true, configura Route 53 + ACM + alias de dominio en CloudFront"
+  type        = bool
+  default     = false
+}
+
+# Provisioned Concurrency para las Lambdas críticas (nota del diagrama).
+# 0 = desactivado (sin costo). >0 reserva esa cantidad de entornos calientes
+# en auth y pedidos (¡genera costo 24/7 mientras esté activo!).
+variable "provisioned_concurrency" {
+  description = "Nº de ejecuciones concurrentes aprovisionadas en Lambdas críticas (0 = off)"
+  type        = number
+  default     = 0
+}

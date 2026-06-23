@@ -1,0 +1,69 @@
+---
+# ============================================================
+# Despliega el código real (backend/ envuelto con serverless-http) en las
+# 4 Lambdas síncronas y mueve el alias "live" a la nueva versión publicada.
+# Requisitos: AWS CLI configurado, Node.js/npm, y que Terraform ya haya creado
+# las funciones (pokiecat-auth, -catalogo, -pedidos, -gastos).
+# ============================================================
+- name: Desplegar Lambdas síncronas de Pokie Cat
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Recrear carpeta de build del bundle
+      ansible.builtin.file:
+        path: "{{ build_dir }}/lambda"
+        state: "{{ item }}"
+        mode: "0755"
+      loop:
+        - absent
+        - directory
+
+    - name: Copiar el código fuente (src/) a la raíz del bundle
+      ansible.builtin.copy:
+        src: "{{ backend_dir }}/src/"
+        dest: "{{ build_dir }}/lambda/"
+
+    - name: Copiar package.json
+      ansible.builtin.copy:
+        src: "{{ backend_dir }}/package.json"
+        dest: "{{ build_dir }}/lambda/package.json"
+
+    - name: Instalar dependencias de producción (incluye serverless-http)
+      ansible.builtin.command:
+        cmd: npm install --omit=dev --no-audit --no-fund
+        chdir: "{{ build_dir }}/lambda"
+      changed_when: true
+
+    - name: Empaquetar el bundle en lambda.zip (handler = lambda.handler en la raíz)
+      community.general.archive:
+        path: "{{ build_dir }}/lambda/*"
+        dest: "{{ build_dir }}/lambda.zip"
+        format: zip
+
+    - name: Actualizar código y publicar versión de cada Lambda
+      ansible.builtin.command:
+        cmd: >-
+          aws lambda update-function-code
+          --function-name {{ project_name }}-{{ item }}
+          --zip-file fileb://{{ build_dir }}/lambda.zip
+          --publish
+          --region {{ aws_region }}
+          --output json
+      loop: "{{ sync_lambdas }}"
+      register: lambda_updates
+      changed_when: true
+
+    - name: Mover el alias 'live' a la nueva versión publicada
+      ansible.builtin.command:
+        cmd: >-
+          aws lambda update-alias
+          --function-name {{ project_name }}-{{ item.item }}
+          --name {{ lambda_alias }}
+          --function-version {{ (item.stdout | from_json).Version }}
+          --region {{ aws_region }}
+      loop: "{{ lambda_updates.results }}"
+      loop_control:
+        label: "{{ item.item }} -> v{{ (item.stdout | from_json).Version }}"
+      changed_when: true

@@ -7,3 +7,8 @@ frontend/build/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+# Ansible
+.ansible_build/
+ansible/collections/
+*.retry
