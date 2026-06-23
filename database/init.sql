@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 -- La contraseña está hasheada con bcrypt (nunca texto plano)
 INSERT INTO admin_users (email, password) VALUES (
   'admin@pookiecat.pe',
-  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'  -- "admin123"
+  '$2b$10$S/cxKIFSVGLqB7REaQtmB..bmDb5J6SIYqvB5VT/9xRG4w2mypQti'  -- "admin123"
 ) ON CONFLICT (email) DO NOTHING;
 
 -- Productos de ejemplo
