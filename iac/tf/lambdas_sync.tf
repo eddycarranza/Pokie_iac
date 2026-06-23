@@ -5,10 +5,10 @@
 
 locals {
   sync_lambdas = {
-    auth      = "Autenticación: iniciar sesión / registrarse"
-    catalogo  = "Catálogo: obtener productos"
-    pedidos   = "Pedidos: POST -> SQS"
-    gastos    = "Gastos"
+    auth     = "Autenticación: iniciar sesión / registrarse"
+    catalogo = "Catálogo: obtener productos"
+    pedidos  = "Pedidos: POST -> SQS"
+    gastos   = "Gastos"
   }
 }
 
@@ -18,12 +18,18 @@ resource "aws_lambda_function" "sync" {
   function_name = "${var.project_name}-${each.key}"
   description   = each.value
   runtime       = "nodejs20.x"
-  handler       = "index.handler"
+  # El bundle real (que despliega Ansible) expone el handler en lambda.js,
+  # un wrapper de serverless-http sobre la app Express del backend/.
+  handler          = "lambda.handler"
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
-  memory_size   = 256
+  memory_size      = 256
+
+  # Publica una versión inmutable en cada cambio de código. Necesario para que
+  # el alias apunte a una versión concreta y poder usar Provisioned Concurrency.
+  publish = true
 
   # Fix CKV_AWS_272: solo desplegar código firmado por nuestro Signing Profile.
   code_signing_config_arn = aws_lambda_code_signing_config.main.arn
@@ -65,7 +71,21 @@ resource "aws_lambda_alias" "sync_live" {
 
   name             = "live"
   function_name    = aws_lambda_function.sync[each.key].function_name
-  function_version = "$LATEST"
+  function_version = aws_lambda_function.sync[each.key].version
+}
+
+# Provisioned Concurrency en las Lambdas críticas (auth y pedidos).
+# Solo se crea si var.provisioned_concurrency > 0 (default 0 = sin costo).
+locals {
+  critical_sync_lambdas = var.provisioned_concurrency > 0 ? toset(["auth", "pedidos"]) : toset([])
+}
+
+resource "aws_lambda_provisioned_concurrency_config" "sync" {
+  for_each = local.critical_sync_lambdas
+
+  function_name                     = aws_lambda_function.sync[each.value].function_name
+  provisioned_concurrent_executions = var.provisioned_concurrency
+  qualifier                         = aws_lambda_alias.sync_live[each.value].name
 }
 
 resource "aws_cloudwatch_log_group" "sync_lambda_logs" {

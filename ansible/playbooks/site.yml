@@ -1,0 +1,17 @@
+---
+# ============================================================
+# POKIE CAT — Orquestador de configuración / despliegue (post-Terraform)
+#
+# Ejecuta, en orden:
+#   1. deploy_lambdas   → empaqueta backend/ y lo despliega en las 4 Lambdas
+#   2. init_database    → crea el esquema en RDS (requiere acceso a la VPC)
+#   3. deploy_frontend  → build de React → S3 → invalida CloudFront
+#
+# Uso:
+#   ansible-playbook playbooks/site.yml
+# o un paso suelto:
+#   ansible-playbook playbooks/deploy_lambdas.yml
+# ============================================================
+- import_playbook: deploy_lambdas.yml
+- import_playbook: init_database.yml
+- import_playbook: deploy_frontend.yml

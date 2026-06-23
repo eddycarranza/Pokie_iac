@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ============================================================
 # POKIE CAT — Infraestructura completa con Docker Compose
 #
@@ -36,6 +34,9 @@ services:
 
   # ── 2. BACKEND ─────────────────────────────────────────────
   backend:
+    # Imagen publicada en GHCR. Con `docker compose build` se reconstruye
+    # localmente; con `docker compose pull/push` usa GitHub Container Registry.
+    image: ghcr.io/${GHCR_OWNER:-rg727876-hub}/pokiecat-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -58,6 +59,7 @@ services:
 
   # ── 3. FRONTEND ────────────────────────────────────────────
   frontend:
+    image: ghcr.io/${GHCR_OWNER:-rg727876-hub}/pokiecat-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -66,7 +68,7 @@ services:
     container_name: pokie-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
 
