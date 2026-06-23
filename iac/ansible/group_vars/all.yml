@@ -1,9 +1,0 @@
-app_repo: "https://github.com/eddycarranza/Pokie_iac.git"
-app_dir: "/opt/pokiecat"
-
-db_name: "pokiecat"
-db_user: "pokiecat_admin"
-db_password: "{{ vault_db_password }}"
-jwt_secret: "{{ vault_jwt_secret }}"
-frontend_url: "http://localhost:3000"
-react_app_api_url: "http://localhost:4000"

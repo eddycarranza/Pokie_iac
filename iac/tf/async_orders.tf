@@ -57,6 +57,17 @@ resource "aws_lambda_function" "async" {
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
+  environment {
+    variables = {
+      DB_SECRET_ARN            = aws_secretsmanager_secret.db_credentials.arn
+      NODE_ENV                 = var.environment
+      ORDER_NOTIFICATIONS_TOPIC = aws_sns_topic.order_notifications.arn
+    }
+  }
+
+  # Fix CKV_AWS_173: cifrar las variables de entorno con la KMS key propia.
+  kms_key_arn = aws_kms_key.main.arn
+
   tracing_config {
     mode = "Active"
   }
@@ -200,4 +211,26 @@ resource "aws_iam_role_policy" "step_functions_policy" {
 # Amazon SES para el email de confirmación
 resource "aws_ses_email_identity" "orders" {
   email = "pedidos@${var.domain_name}"
+}
+
+# ─────────────────────────────────────────────
+# Amazon SNS — Notificaciones de pedidos al cliente
+# La Lambda send-order-email publica aquí el evento de pedido confirmado
+# (último paso del flujo asíncrono del diagrama).
+# ─────────────────────────────────────────────
+resource "aws_sns_topic" "order_notifications" {
+  name              = "${var.project_name}-order-notifications"
+  kms_master_key_id = aws_kms_key.main.id
+
+  tags = {
+    Name = "${var.project_name}-order-notifications"
+  }
+}
+
+# Suscripción de ejemplo: avisa al equipo de cada pedido confirmado.
+# (El cliente recibe su email vía SES; SNS sirve para fan-out a otros canales.)
+resource "aws_sns_topic_subscription" "order_notifications_email" {
+  topic_arn = aws_sns_topic.order_notifications.arn
+  protocol  = "email"
+  endpoint  = "pedidos@${var.domain_name}"
 }

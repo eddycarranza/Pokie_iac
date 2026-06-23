@@ -38,3 +38,8 @@ output "step_functions_arn" {
   description = "ARN de la máquina de estados de orquestación de pedidos"
   value       = aws_sfn_state_machine.orders_orchestrator.arn
 }
+
+output "order_notifications_topic_arn" {
+  description = "ARN del topic SNS de notificaciones de pedidos"
+  value       = aws_sns_topic.order_notifications.arn
+}

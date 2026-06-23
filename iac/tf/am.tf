@@ -67,6 +67,24 @@ resource "aws_iam_role_policy" "lambda_basic" {
             "ses:FromAddress" = "pedidos@${var.domain_name}"
           }
         }
+      },
+      {
+        # send-order-email publica el pedido confirmado en el topic de notificaciones.
+        Sid      = "PublishOrderNotifications"
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = aws_sns_topic.order_notifications.arn
+      },
+      {
+        # Necesario para publicar en el topic SNS (y la cola SQS) cifrados con KMS,
+        # leer el secreto de RDS y descifrar las variables de entorno.
+        Sid    = "UseKmsKey"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.main.arn
       }
     ]
   })
