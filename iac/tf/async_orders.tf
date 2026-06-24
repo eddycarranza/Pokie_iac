@@ -16,18 +16,18 @@ resource "aws_sqs_queue" "orders" {
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.orders_dlq.arn
-    maxReceiveCount      = 3
+    maxReceiveCount     = 3
   })
 }
 
 resource "aws_sqs_queue" "throttling_contingency" {
-  name               = "${var.project_name}-throttling-contingency"
-  kms_master_key_id  = aws_kms_key.main.id
+  name              = "${var.project_name}-throttling-contingency"
+  kms_master_key_id = aws_kms_key.main.id
 }
 
 locals {
   async_lambdas = {
-    stock_check          = "Lambda consultar-stock: verificar stock"
+    stock_check           = "Lambda consultar-stock: verificar stock"
     purchase_confirmation = "Lambda compra-confirmacion: confirmar en RDS"
     send_order_email      = "Lambda send-order-email"
   }
@@ -36,10 +36,10 @@ locals {
 resource "aws_lambda_function" "async" {
   for_each = local.async_lambdas
 
-  function_name = "${var.project_name}-${each.key}"
-  description   = each.value
-  runtime       = "nodejs20.x"
-  handler       = "index.handler"
+  function_name    = "${var.project_name}-${each.key}"
+  description      = each.value
+  runtime          = "nodejs20.x"
+  handler          = "index.handler"
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
   role             = aws_iam_role.lambda_exec.arn
@@ -59,8 +59,8 @@ resource "aws_lambda_function" "async" {
 
   environment {
     variables = {
-      DB_SECRET_ARN            = aws_secretsmanager_secret.db_credentials.arn
-      NODE_ENV                 = var.environment
+      DB_SECRET_ARN             = aws_secretsmanager_secret.db_credentials.arn
+      NODE_ENV                  = var.environment
       ORDER_NOTIFICATIONS_TOPIC = aws_sns_topic.order_notifications.arn
     }
   }
@@ -134,7 +134,7 @@ resource "aws_sfn_state_machine" "orders_orchestrator" {
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.sfn_logs.arn}:*"
     include_execution_data = true
-    level                   = "ALL"
+    level                  = "ALL"
   }
 
   # Fix CKV_AWS_284: X-Ray tracing en la propia máquina de estados

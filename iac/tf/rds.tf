@@ -17,10 +17,10 @@ resource "aws_db_instance" "postgres" {
   engine_version = "15.4"
   instance_class = "db.t3.medium"
 
-  allocated_storage     = 50
-  storage_type           = "gp3"
-  storage_encrypted      = true
-  kms_key_id              = aws_kms_key.main.arn
+  allocated_storage = 50
+  storage_type      = "gp3"
+  storage_encrypted = true
+  kms_key_id        = aws_kms_key.main.arn
 
   db_name  = "pokiecat"
   username = var.db_username
@@ -31,12 +31,12 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
   publicly_accessible    = false
 
-  backup_retention_period = 7
-  backup_window           = "02:00-03:00"
-  deletion_protection     = true
-  skip_final_snapshot     = false
+  backup_retention_period   = 7
+  backup_window             = "02:00-03:00"
+  deletion_protection       = true
+  skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project_name}-db-final-snapshot"
-  copy_tags_to_snapshot      = true
+  copy_tags_to_snapshot     = true
 
   # Fix CKV_AWS_226: aplicar parches menores automáticamente.
   auto_minor_version_upgrade = true
@@ -45,8 +45,8 @@ resource "aws_db_instance" "postgres" {
   iam_database_authentication_enabled = true
 
   # Performance Insights cifrado con KMS.
-  performance_insights_enabled     = true
-  performance_insights_kms_key_id  = aws_kms_key.main.arn
+  performance_insights_enabled    = true
+  performance_insights_kms_key_id = aws_kms_key.main.arn
 
   # Fix CKV_AWS_118: Enhanced Monitoring (métricas de OS cada 60s).
   monitoring_interval = 60
@@ -67,6 +67,13 @@ resource "aws_db_instance" "postgres" {
 resource "aws_db_parameter_group" "postgres" {
   name   = "${var.project_name}-postgres-params"
   family = "postgres15"
+
+  # Fix CKV2_AWS_69: forzar cifrado en tránsito (SSL/TLS) en todas las
+  # conexiones a PostgreSQL. Rechaza conexiones no cifradas.
+  parameter {
+    name  = "rds.force_ssl"
+    value = "1"
+  }
 
   parameter {
     name  = "log_statement"
@@ -103,9 +110,9 @@ resource "aws_db_proxy" "main" {
   name                   = "${var.project_name}-rds-proxy"
   engine_family          = "POSTGRESQL"
   role_arn               = aws_iam_role.rds_proxy_role.arn
-  vpc_subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
-  require_tls             = true
+  vpc_subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  require_tls            = true
 
   auth {
     auth_scheme = "SECRETS"
