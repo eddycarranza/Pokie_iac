@@ -36,6 +36,79 @@ resource "aws_s3_bucket" "replica" {
   bucket = "${var.project_name}-${each.key}-replica"
 }
 
+# ─────────────────────────────────────────────
+# Fix CKV_AWS_18: access logging de los buckets réplica.
+# El destino de los access logs debe estar en la misma región que el bucket
+# origen, por eso se crea un bucket de logs dedicado en la región réplica.
+# Al ser destino de logging, Checkov lo exime de CKV_AWS_18.
+# ─────────────────────────────────────────────
+resource "aws_s3_bucket" "replica_logs" {
+  #checkov:skip=CKV_AWS_144:Bucket de logs de la región DR; no necesita re-replicarse.
+  #checkov:skip=CKV2_AWS_62:Sumidero de access logs; no requiere notificaciones de eventos.
+  provider = aws.replica
+  bucket   = "${var.project_name}-replica-access-logs"
+}
+
+resource "aws_s3_bucket_public_access_block" "replica_logs" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "replica_logs" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.replica.arn
+    }
+    bucket_key_enabled = true
+  }
+}
+
+resource "aws_s3_bucket_versioning" "replica_logs" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica_logs.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "replica_logs" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica_logs.id
+
+  rule {
+    id     = "retencion-90-dias"
+    status = "Enabled"
+
+    expiration {
+      days = 90
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
+# Habilita el access logging en cada uno de los 4 buckets replicados.
+resource "aws_s3_bucket_logging" "replica" {
+  for_each = local.replicated_buckets
+  provider = aws.replica
+
+  bucket        = aws_s3_bucket.replica[each.key].id
+  target_bucket = aws_s3_bucket.replica_logs.id
+  target_prefix = "${each.key}-access-logs/"
+}
+
 # Fix CKV2_AWS_62: topic SNS propio en la región réplica (los topics SNS
 # son regionales, no se puede reusar aws_sns_topic.alerts de la región
 # principal) para notificar eventos de los buckets replicados.
