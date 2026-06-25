@@ -66,7 +66,7 @@ resource "aws_iam_role_policy" "lambda_basic" {
         Sid      = "SesSendEmail"
         Effect   = "Allow"
         Action   = ["ses:SendEmail", "ses:SendRawEmail"]
-        Resource = "*"
+        Resource = "*" # NOSONAR: ses:SendEmail no admite ARN especifico, ver Condition abajo
         Condition = {
           StringEquals = {
             "ses:FromAddress" = "pedidos@${var.domain_name}"
