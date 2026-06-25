@@ -9,6 +9,10 @@ resource "aws_api_gateway_rest_api" "main" {
   endpoint_configuration {
     types = ["REGIONAL"]
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_api_gateway_authorizer" "jwt" {
