@@ -17,6 +17,42 @@ resource "aws_route53_zone" "main" {
   comment = "Zona DNS de ${var.project_name}"
 }
 
+# Fix CKV2_AWS_39: habilita el registro de consultas DNS (query logging)
+# de la hosted zone hacia CloudWatch Logs, para poder auditar qué dominios
+# se están resolviendo contra la zona.
+resource "aws_cloudwatch_log_group" "route53_query_logs" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  name              = "/aws/route53/${var.project_name}"
+  retention_in_days = 365
+}
+
+resource "aws_cloudwatch_log_resource_policy" "route53_query_logs" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  policy_name = "${var.project_name}-route53-query-logs-policy"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "Route53LogsToCloudWatchLogs"
+      Effect    = "Allow"
+      Principal = { Service = "route53.amazonaws.com" }
+      Action    = ["logs:PutLogEvents", "logs:CreateLogStream"]
+      Resource  = "${aws_cloudwatch_log_group.route53_query_logs[0].arn}:*"
+    }]
+  })
+}
+
+resource "aws_route53_query_log" "main" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  depends_on = [aws_cloudwatch_log_resource_policy.route53_query_logs]
+
+  zone_id                  = aws_route53_zone.main[0].zone_id
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.route53_query_logs[0].arn
+}
+
 # Registros DNS que pide ACM para validar el certificado.
 resource "aws_route53_record" "acm_validation" {
   for_each = var.enable_custom_domain ? {
