@@ -184,6 +184,30 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "canary_artifacts"
   }
 }
 
+# Fix: fuerza HTTPS-only, niega cualquier acceso que no use TLS.
+resource "aws_s3_bucket_policy" "canary_artifacts" {
+  bucket = aws_s3_bucket.canary_artifacts.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.canary_artifacts.arn,
+        "${aws_s3_bucket.canary_artifacts.arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+}
+
 resource "aws_iam_role" "canary_role" {
   name = "${var.project_name}-canary-role"
 

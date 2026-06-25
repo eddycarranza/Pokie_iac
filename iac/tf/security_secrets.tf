@@ -270,12 +270,30 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid       = "AWSCloudTrailWrite"
-      Effect    = "Allow"
-      Principal = { Service = "cloudtrail.amazonaws.com" }
-      Action    = "s3:PutObject"
-      Resource  = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
-    }]
+    Statement = [
+      {
+        Sid       = "AWSCloudTrailWrite"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+      },
+      {
+        # Fix: forzar HTTPS-only, niega cualquier acceso que no use TLS.
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.cloudtrail_logs.arn,
+          "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
   })
 }

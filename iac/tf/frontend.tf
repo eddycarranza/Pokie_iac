@@ -76,6 +76,15 @@ resource "aws_s3_bucket_versioning" "access_logs" {
   }
 }
 
+# Fix CKV_AWS_18: AWS recomienda que el propio bucket de logs registre su
+# acceso (server access logging "self-logged"), guardando los registros
+# en un prefijo separado dentro de él mismo.
+resource "aws_s3_bucket_logging" "access_logs" {
+  bucket        = aws_s3_bucket.access_logs.id
+  target_bucket = aws_s3_bucket.access_logs.id
+  target_prefix = "self-access-logs/"
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   bucket = aws_s3_bucket.access_logs.id
 
@@ -92,6 +101,54 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
       days_after_initiation = 7
     }
   }
+}
+
+# Fix: fuerza HTTPS-only en ambos buckets, negando cualquier acceso que
+# no use TLS (aws:SecureTransport = false).
+resource "aws_s3_bucket_policy" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.frontend.arn,
+        "${aws_s3_bucket.frontend.arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_s3_bucket_policy" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.access_logs.arn,
+        "${aws_s3_bucket.access_logs.arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
 }
 
 resource "aws_s3_bucket_versioning" "frontend" {

@@ -13,6 +13,17 @@ const getHeaders = () => {
   };
 };
 
+// Valida que el id recibido sea un identificador "seguro" antes de usarlo
+// para construir una URL. Evita que datos no confiables (tainted data)
+// terminen formando parte de la ruta de la petición.
+const sanitizeId = (id) => {
+  const safeId = String(id);
+  if (!/^[a-zA-Z0-9_-]+$/.test(safeId)) {
+    throw new Error("Identificador inválido");
+  }
+  return encodeURIComponent(safeId);
+};
+
 // Función genérica para manejar respuestas
 const handleResponse = async (res) => {
   if (res.status === 401) {
@@ -52,7 +63,7 @@ export const createProduct = async (product) => {
 };
 
 export const updateProduct = async (id, product) => {
-  const res = await fetch(`${API_URL}/products/${id}`, {
+  const res = await fetch(`${API_URL}/products/${sanitizeId(id)}`, {
     method: "PATCH",
     headers: getHeaders(),
     body: JSON.stringify(product),
@@ -61,7 +72,7 @@ export const updateProduct = async (id, product) => {
 };
 
 export const deleteProduct = async (id) => {
-  const res = await fetch(`${API_URL}/products/${id}`, {
+  const res = await fetch(`${API_URL}/products/${sanitizeId(id)}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -84,7 +95,7 @@ export const createOrder = async (order) => {
 };
 
 export const updateOrder = async (id, data) => {
-  const res = await fetch(`${API_URL}/orders/${id}`, {
+  const res = await fetch(`${API_URL}/orders/${sanitizeId(id)}`, {
     method: "PATCH",
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -93,7 +104,7 @@ export const updateOrder = async (id, data) => {
 };
 
 export const deleteOrder = async (id) => {
-  const res = await fetch(`${API_URL}/orders/${id}`, {
+  const res = await fetch(`${API_URL}/orders/${sanitizeId(id)}`, {
     method: "DELETE",
     headers: getHeaders(),
   });
@@ -116,7 +127,7 @@ export const createExpense = async (expense) => {
 };
 
 export const deleteExpense = async (id) => {
-  const res = await fetch(`${API_URL}/expenses/${id}`, {
+  const res = await fetch(`${API_URL}/expenses/${sanitizeId(id)}`, {
     method: "DELETE",
     headers: getHeaders(),
   });

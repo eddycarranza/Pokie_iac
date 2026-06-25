@@ -13,6 +13,10 @@ const expenseRoutes = require("./routes/expenses");
 
 const app = express();
 
+// Oculta el header "X-Powered-By: Express" para no revelar información
+// del framework/version del servidor a quien inspeccione las respuestas.
+app.disable("x-powered-by");
+
 // ── Middlewares ──────────────────────────────────────────────
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:3000",

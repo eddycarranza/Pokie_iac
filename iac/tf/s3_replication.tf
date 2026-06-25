@@ -99,6 +99,68 @@ resource "aws_s3_bucket_lifecycle_configuration" "replica_logs" {
   }
 }
 
+# Fix CKV_AWS_18: igual que con access_logs en la región principal, el
+# bucket de logs de la región réplica registra su propio acceso en un
+# prefijo separado, en vez de quedar exento sin ningún logging real.
+resource "aws_s3_bucket_logging" "replica_logs" {
+  provider      = aws.replica
+  bucket        = aws_s3_bucket.replica_logs.id
+  target_bucket = aws_s3_bucket.replica_logs.id
+  target_prefix = "self-access-logs/"
+}
+
+# Fix: fuerza HTTPS-only en el bucket de logs réplica y en los 4 buckets
+# replicados, negando cualquier acceso que no use TLS.
+resource "aws_s3_bucket_policy" "replica_logs" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.replica_logs.arn,
+        "${aws_s3_bucket.replica_logs.arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_s3_bucket_policy" "replica" {
+  for_each = local.replicated_buckets
+  provider = aws.replica
+
+  bucket = aws_s3_bucket.replica[each.key].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.replica[each.key].arn,
+        "${aws_s3_bucket.replica[each.key].arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+}
+
 # Habilita el access logging en cada uno de los 4 buckets replicados.
 resource "aws_s3_bucket_logging" "replica" {
   for_each = local.replicated_buckets

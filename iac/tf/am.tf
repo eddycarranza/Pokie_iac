@@ -56,8 +56,13 @@ resource "aws_iam_role_policy" "lambda_basic" {
         Resource = aws_sqs_queue.orders.arn
       },
       {
-        # ses:SendEmail no admite restricción por ARN de recurso; se acota
-        # por condición al dominio verificado del proyecto en su lugar.
+        # ses:SendEmail/SendRawEmail no admiten restricción por ARN de
+        # recurso (no existe un ARN de "mensaje" al que apuntar), por lo
+        # que AWS exige Resource = "*" para esta acción. El alcance real
+        # queda acotado por la Condition: solo se puede enviar correo
+        # desde la dirección verificada del proyecto, así un atacante con
+        # este permiso no podría usarlo para enviar spam desde cualquier
+        # remitente.
         Sid      = "SesSendEmail"
         Effect   = "Allow"
         Action   = ["ses:SendEmail", "ses:SendRawEmail"]
