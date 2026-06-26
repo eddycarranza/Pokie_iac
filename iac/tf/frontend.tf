@@ -177,6 +177,7 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+# checkov:skip=CKV2_AWS_47: aws_wafv2_web_acl.main (security_waf.tf) incluye AWSManagedRulesKnownBadInputsRuleSet con override_action=none; Checkov no resuelve la referencia cross-file.
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
