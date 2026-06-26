@@ -190,10 +190,35 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  # Fix CKV_AWS_310: origen secundario para failover. Si el bucket principal
+  # no responde, CloudFront pasa automáticamente al bucket réplica de la
+  # región de DR (el mismo que usamos para la recuperación ante desastres).
+  origin {
+    domain_name              = aws_s3_bucket.replica["frontend"].bucket_regional_domain_name
+    origin_id                = "s3-frontend-replica"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin_group {
+    origin_id = "s3-frontend-group"
+
+    failover_criteria {
+      status_codes = [403, 404, 500, 502, 503, 504]
+    }
+
+    member {
+      origin_id = "s3-frontend"
+    }
+
+    member {
+      origin_id = "s3-frontend-replica"
+    }
+  }
+
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-frontend"
+    target_origin_id       = "s3-frontend-group"
     viewer_protocol_policy = "redirect-to-https"
 
     forwarded_values {
