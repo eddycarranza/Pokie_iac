@@ -141,23 +141,42 @@ resource "aws_s3_bucket_policy" "replica" {
 
   bucket = aws_s3_bucket.replica[each.key].id
 
+  # Fix CKV_AWS_310 (parcial): el bucket réplica "frontend" es el origen de
+  # failover de CloudFront, así que necesita un statement que le permita al
+  # Origin Access Control de la distribución leerlo, igual que el bucket
+  # principal. Se restringe con aws:SourceArn a esta distribución específica.
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid       = "DenyInsecureTransport"
-      Effect    = "Deny"
-      Principal = "*"
-      Action    = "s3:*"
-      Resource = [
-        aws_s3_bucket.replica[each.key].arn,
-        "${aws_s3_bucket.replica[each.key].arn}/*"
-      ]
-      Condition = {
-        Bool = {
-          "aws:SecureTransport" = "false"
+    Statement = concat([
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.replica[each.key].arn,
+          "${aws_s3_bucket.replica[each.key].arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
         }
       }
-    }]
+      ], each.key == "frontend" ? [
+      {
+        Sid       = "AllowCloudFrontOACRead"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.replica[each.key].arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+          }
+        }
+      }
+    ] : [])
   })
 }
 
