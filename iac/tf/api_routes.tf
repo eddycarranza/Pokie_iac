@@ -11,7 +11,6 @@
 # ─────────────────────────────────────────────
 
 locals {
-  # Mapeo lambda (clave de local.sync_lambdas) -> ruta y autorización.
   api_routes = {
     auth = {
       path          = "auth"
@@ -31,8 +30,6 @@ locals {
     }
   }
 
-  # Por cada ruta exponemos el recurso raíz (/path) y el greedy (/path/{proxy+})
-  # para capturar también las sub-rutas (p.ej. /auth/login, /products/123).
   api_resource_targets = merge([
     for k, v in local.api_routes : {
       "${k}-root" = {
@@ -47,6 +44,15 @@ locals {
       }
     }
   ]...)
+}
+
+# Fix CKV2_AWS_53: habilitar validación de parámetros y headers en todas
+# las rutas del API Gateway para prevenir requests malformadas.
+resource "aws_api_gateway_request_validator" "main" {
+  name                        = "${var.project_name}-request-validator"
+  rest_api_id                 = aws_api_gateway_rest_api.main.id
+  validate_request_body       = true
+  validate_request_parameters = true
 }
 
 # /<path>
@@ -67,15 +73,17 @@ resource "aws_api_gateway_resource" "proxy" {
   path_part   = "{proxy+}"
 }
 
-# ── Método ANY + integración Lambda-proxy ───────────────────────
+# ── Método ANY + integración Lambda-proxy ──────────────────────────────
 resource "aws_api_gateway_method" "any" {
   for_each = local.api_resource_targets
 
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = each.value.resource_id
-  http_method   = "ANY"
-  authorization = each.value.authorization
-  authorizer_id = each.value.authorization == "COGNITO_USER_POOLS" ? aws_api_gateway_authorizer.jwt.id : null
+  rest_api_id          = aws_api_gateway_rest_api.main.id
+  resource_id          = each.value.resource_id
+  http_method          = "ANY"
+  authorization        = each.value.authorization
+  authorizer_id        = each.value.authorization == "COGNITO_USER_POOLS" ? aws_api_gateway_authorizer.jwt.id : null
+  # Fix CKV2_AWS_53: asociar el validador a cada método
+  request_validator_id = aws_api_gateway_request_validator.main.id
 }
 
 resource "aws_api_gateway_integration" "any" {
@@ -86,8 +94,7 @@ resource "aws_api_gateway_integration" "any" {
   http_method             = aws_api_gateway_method.any[each.key].http_method
   type                    = "AWS_PROXY"
   integration_http_method = "POST"
-  # Apuntamos al alias "live" para habilitar despliegues versionados.
-  uri = aws_lambda_alias.sync_live[each.value.route].invoke_arn
+  uri                     = aws_lambda_alias.sync_live[each.value.route].invoke_arn
 }
 
 # Permitir que API Gateway invoque cada Lambda (vía alias).
@@ -99,21 +106,19 @@ resource "aws_lambda_permission" "apigw" {
   function_name = aws_lambda_function.sync[each.key].function_name
   qualifier     = aws_lambda_alias.sync_live[each.key].name
   principal     = "apigateway.amazonaws.com"
-  # /*/* cubre cualquier stage y cualquier método/ruta de esta API.
-  source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
 }
 
-# ── CORS: preflight OPTIONS (integración MOCK) ──────────────────
-# El frontend (CloudFront) llama al API Gateway cross-origin, por lo que el
-# navegador envía un preflight OPTIONS sin Authorization. Lo respondemos con
-# una integración MOCK para no enviarlo a la Lambda (evita 401 en protegidas).
+# ── CORS: preflight OPTIONS (integración MOCK) ──────────────────────────
 resource "aws_api_gateway_method" "cors" {
   for_each = local.api_resource_targets
 
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = each.value.resource_id
-  http_method   = "OPTIONS"
-  authorization = "NONE"
+  rest_api_id          = aws_api_gateway_rest_api.main.id
+  resource_id          = each.value.resource_id
+  http_method          = "OPTIONS"
+  authorization        = "NONE"
+  # Fix CKV2_AWS_53: validar también el preflight OPTIONS, ya validado también
+  request_validator_id = aws_api_gateway_request_validator.main.id
 }
 
 resource "aws_api_gateway_integration" "cors" {
@@ -149,8 +154,7 @@ resource "aws_api_gateway_method_response" "cors" {
 }
 
 resource "aws_api_gateway_integration_response" "cors" {
-  for_each = local.api_resource_targets
-
+  for_each    = local.api_resource_targets
   rest_api_id = aws_api_gateway_rest_api.main.id
   resource_id = each.value.resource_id
   http_method = aws_api_gateway_method.cors[each.key].http_method
