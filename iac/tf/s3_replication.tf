@@ -12,6 +12,36 @@ resource "aws_kms_key" "replica" {
   description             = "KMS key para los buckets réplica de Pokie Cat (DR)"
   deletion_window_in_days = 30
   enable_key_rotation     = true
+
+  # Fix CKV2_AWS_64: policy explícita de la key (root account + permitir que
+  # S3 y SNS de la región réplica la usen para cifrar/descifrar).
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableRootAccountFullAccess"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid    = "AllowS3AndSNSUseOfKey"
+        Effect = "Allow"
+        Principal = {
+          Service = ["s3.amazonaws.com", "sns.amazonaws.com"]
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "aws_kms_alias" "replica" {
