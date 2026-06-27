@@ -77,11 +77,11 @@ resource "aws_api_gateway_resource" "proxy" {
 resource "aws_api_gateway_method" "any" {
   for_each = local.api_resource_targets
 
-  rest_api_id          = aws_api_gateway_rest_api.main.id
-  resource_id          = each.value.resource_id
-  http_method          = "ANY"
-  authorization        = each.value.authorization
-  authorizer_id        = each.value.authorization == "COGNITO_USER_POOLS" ? aws_api_gateway_authorizer.jwt.id : null
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = each.value.resource_id
+  http_method   = "ANY"
+  authorization = each.value.authorization
+  authorizer_id = each.value.authorization == "COGNITO_USER_POOLS" ? aws_api_gateway_authorizer.jwt.id : null
   # Fix CKV2_AWS_53: asociar el validador a cada método
   request_validator_id = aws_api_gateway_request_validator.main.id
 }
@@ -113,10 +113,10 @@ resource "aws_lambda_permission" "apigw" {
 resource "aws_api_gateway_method" "cors" {
   for_each = local.api_resource_targets
 
-  rest_api_id          = aws_api_gateway_rest_api.main.id
-  resource_id          = each.value.resource_id
-  http_method          = "OPTIONS"
-  authorization        = "NONE"
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = each.value.resource_id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
   # Fix CKV2_AWS_53: validar también el preflight OPTIONS, ya validado también
   request_validator_id = aws_api_gateway_request_validator.main.id
 }
