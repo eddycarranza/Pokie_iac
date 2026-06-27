@@ -235,8 +235,12 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   restrictions {
+    # Fix CKV_AWS_374: geo restriction habilitada.
+    # La app está orientada al mercado peruano (pookiecat.pe); amplía la lista
+    # si se expande a otros países.
     geo_restriction {
-      restriction_type = "none"
+      restriction_type = "whitelist"
+      locations        = ["PE"]
     }
   }
 

@@ -185,6 +185,9 @@ resource "aws_api_gateway_method_settings" "prod" {
     throttling_burst_limit = 50
     logging_level          = "INFO"
     metrics_enabled        = true
+    # Fix CKV_AWS_225 / CKV_AWS_308: habilita caché y lo cifra en reposo.
+    caching_enabled      = true
+    cache_data_encrypted = true
   }
 }
 
@@ -219,4 +222,17 @@ resource "aws_cloudwatch_log_group" "api_gw_logs" {
   # Fix CKV_AWS_338: retención de al menos 1 año (antes 90 días).
   retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
+}
+
+# Fix CKV2_AWS_31: logging del WAF regional (api_gateway) hacia CloudWatch.
+# El nombre del log group debe comenzar con "aws-waf-logs-" (requisito de AWS).
+resource "aws_cloudwatch_log_group" "apigw_waf_logs" {
+  name              = "aws-waf-logs-${var.project_name}-apigw"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.main.arn
+}
+
+resource "aws_wafv2_web_acl_logging_configuration" "api_gateway" {
+  resource_arn            = aws_wafv2_web_acl.api_gateway.arn
+  log_destination_configs = [aws_cloudwatch_log_group.apigw_waf_logs.arn]
 }

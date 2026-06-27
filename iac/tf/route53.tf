@@ -79,6 +79,62 @@ resource "aws_acm_certificate_validation" "main" {
   validation_record_fqdns = [for r in aws_route53_record.acm_validation : r.fqdn]
 }
 
+# Fix CKV2_AWS_38: DNSSEC para la hosted zone pública.
+# Requiere una KMS key asimétrica ECC_NIST_P256 en us-east-1 (región actual).
+# Las claves asimétricas no admiten rotación automática (enable_key_rotation = false).
+resource "aws_kms_key" "dnssec" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  description              = "KMS key para DNSSEC de la hosted zone ${var.project_name}"
+  key_usage                = "SIGN_VERIFY"
+  customer_master_key_spec = "ECC_NIST_P256"
+  deletion_window_in_days  = 7
+  enable_key_rotation      = false
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableIAMPermissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRoute53DNSSECService"
+        Effect = "Allow"
+        Principal = {
+          Service = "dnssec-route53.amazonaws.com"
+        }
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetPublicKey",
+          "kms:Sign"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_route53_key_signing_key" "main" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  hosted_zone_id             = aws_route53_zone.main[0].id
+  key_management_service_arn = aws_kms_key.dnssec[0].arn
+  name                       = "${var.project_name}-ksk"
+}
+
+resource "aws_route53_hosted_zone_dnssec" "main" {
+  count = var.enable_custom_domain ? 1 : 0
+
+  depends_on     = [aws_route53_key_signing_key.main]
+  hosted_zone_id = aws_route53_key_signing_key.main[0].hosted_zone_id
+}
+
 # Alias del dominio raíz hacia la distribución de CloudFront.
 resource "aws_route53_record" "frontend_a" {
   count = var.enable_custom_domain ? 1 : 0
