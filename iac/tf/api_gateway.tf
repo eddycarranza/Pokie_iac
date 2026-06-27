@@ -36,6 +36,14 @@ resource "aws_api_gateway_stage" "prod" {
   # (mTLS hacia el origin).
   client_certificate_id = aws_api_gateway_client_certificate.main.id
 
+  # Fix CKV2_AWS_77: asociar el WAF regional directamente en el stage
+  web_acl_arn = aws_wafv2_web_acl.api_gateway.arn
+
+  # Fix CKV_AWS_120: habilitar caché en el stage para reducir latencia
+  # y carga sobre las Lambdas backend.
+  cache_cluster_enabled = true
+  cache_cluster_size    = "0.5"
+
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gw_logs.arn
     format = jsonencode({
@@ -184,7 +192,6 @@ resource "aws_api_gateway_deployment" "main" {
   rest_api_id = aws_api_gateway_rest_api.main.id
 
   triggers = {
-    # Redesplegar cuando cambie el authorizer, las rutas o los métodos/integraciones.
     redeployment = sha1(jsonencode([
       aws_api_gateway_authorizer.jwt.id,
       local.api_routes,
@@ -208,7 +215,7 @@ resource "aws_api_gateway_deployment" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "api_gw_logs" {
-  name = "/aws/apigateway/${var.project_name}"
+  name              = "/aws/apigateway/${var.project_name}"
   # Fix CKV_AWS_338: retención de al menos 1 año (antes 90 días).
   retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
