@@ -177,8 +177,9 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
-# checkov:skip=CKV2_AWS_47: aws_wafv2_web_acl.main (security_waf.tf) incluye AWSManagedRulesKnownBadInputsRuleSet con override_action=none; Checkov no resuelve la referencia cross-file.
 resource "aws_cloudfront_distribution" "frontend" {
+  #checkov:skip=CKV2_AWS_47: aws_wafv2_web_acl.main (security_waf.tf) incluye AWSManagedRulesKnownBadInputsRuleSet con override_action=none; Checkov no resuelve la referencia cross-file.
+  #checkov:skip=CKV_AWS_174: con dominio personalizado el viewer_certificate usa TLSv1.2_2021; en modo lab (cloudfront_default_certificate) AWS fuerza TLSv1 y no permite subir minimum_protocol_version.
   enabled             = true
   default_root_object = "index.html"
   # Solo se asocia el dominio personalizado cuando está habilitado; si no,
