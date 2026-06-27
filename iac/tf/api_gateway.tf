@@ -108,7 +108,9 @@ resource "aws_wafv2_web_acl" "api_gateway" {
   }
 
   # Fix CKV2_AWS_77: cubrir vulnerabilidades tipo Log4j (Log4Shell) en el
-  # WAF regional asociado al API Gateway.
+  # WAF regional asociado al API Gateway. Checkov exige las DOS reglas
+  # administradas de AWS juntas (KnownBadInputs + AnonymousIpList) para
+  # considerar la protección contra Log4j como completa.
   rule {
     name     = "AWSManagedKnownBadInputs"
     priority = 3
@@ -127,6 +129,28 @@ resource "aws_wafv2_web_acl" "api_gateway" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "ApiGwAWSManagedKnownBadInputs"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedAnonymousIpList"
+    priority = 4
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAnonymousIpList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ApiGwAWSManagedAnonymousIpList"
       sampled_requests_enabled   = true
     }
   }
