@@ -166,47 +166,76 @@ resource "aws_s3_bucket_policy" "replica_logs" {
 }
 
 resource "aws_s3_bucket_policy" "replica" {
-  for_each = local.replicated_buckets
+  # "frontend" tiene su propia policy (con el statement adicional para
+  # CloudFront), por eso se excluye aquí para no chocar con dos policies
+  # distintas sobre el mismo bucket (S3 solo admite una por bucket).
+  for_each = { for k, v in local.replicated_buckets : k => v if k != "frontend" }
   provider = aws.replica
 
   bucket = aws_s3_bucket.replica[each.key].id
 
-  # Fix CKV_AWS_310 (parcial): el bucket réplica "frontend" es el origen de
-  # failover de CloudFront, así que necesita un statement que le permita al
-  # Origin Access Control de la distribución leerlo, igual que el bucket
-  # principal. Se restringe con aws:SourceArn a esta distribución específica.
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = concat([
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.replica[each.key].arn,
+        "${aws_s3_bucket.replica[each.key].arn}/*"
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+}
+
+# Fix CKV_AWS_310 (parcial): policy propia del bucket réplica "frontend",
+# que es el origen de failover de CloudFront. Junto al deny de HTTP de
+# siempre, agrega el permiso para que el Origin Access Control de la
+# distribución lo lea (igual que el bucket principal). Va en su propio
+# resource, separado del "replica" genérico de arriba, porque Checkov
+# (CKV_AWS_70) falla al analizar estáticamente un Statement construido
+# con concat()+condicional dentro de jsonencode.
+resource "aws_s3_bucket_policy" "replica_frontend" {
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica["frontend"].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
       {
         Sid       = "DenyInsecureTransport"
         Effect    = "Deny"
         Principal = "*"
         Action    = "s3:*"
         Resource = [
-          aws_s3_bucket.replica[each.key].arn,
-          "${aws_s3_bucket.replica[each.key].arn}/*"
+          aws_s3_bucket.replica["frontend"].arn,
+          "${aws_s3_bucket.replica["frontend"].arn}/*"
         ]
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
           }
         }
-      }
-      ], each.key == "frontend" ? [
+      },
       {
         Sid       = "AllowCloudFrontOACRead"
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.replica[each.key].arn}/*"
+        Resource  = "${aws_s3_bucket.replica["frontend"].arn}/*"
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
           }
         }
       }
-    ] : [])
+    ]
   })
 }
 
