@@ -218,7 +218,7 @@ resource "aws_api_gateway_deployment" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "api_gw_logs" {
-  name              = "/aws/apigateway/${var.project_name}"
+  name = "/aws/apigateway/${var.project_name}"
   # Fix CKV_AWS_338: retención de al menos 1 año (antes 90 días).
   retention_in_days = 365
   kms_key_id        = aws_kms_key.main.arn
