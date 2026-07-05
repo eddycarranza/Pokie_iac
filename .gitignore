@@ -12,3 +12,11 @@ Thumbs.db
 .ansible_build/
 ansible/collections/
 *.retry
+
+# Checkov outputs — no committear resultados de análisis
+iac/tf/results.xml
+iac/results.xml
+iac/iac/
+
+# Test coverage
+backend/coverage/
