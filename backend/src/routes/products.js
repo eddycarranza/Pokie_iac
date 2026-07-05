@@ -10,7 +10,18 @@ router.get("/", async (req, res) => {
     const { rows } = await pool.query(
       "SELECT * FROM products ORDER BY created_at DESC"
     );
-    res.json(rows);
+    // El frontend usa p.cat para filtrar por categoría, pero la BD guarda
+    // el campo como "category". Mapeamos aquí para no tener que cambiar el frontend.
+    // Nota: pg devuelve NUMERIC como string — los convertimos a number para evitar
+    // que .toFixed() rompa el frontend.
+    const products = rows.map(p => ({
+      ...p,
+      cat:        p.category,
+      price:      p.price      != null ? parseFloat(p.price)     : 0,
+      sale_price: p.sale_price != null ? parseFloat(p.sale_price): null,
+      stock:      p.stock      != null ? parseInt(p.stock, 10)   : 0,
+    }));
+    res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

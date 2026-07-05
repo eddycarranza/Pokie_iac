@@ -18,17 +18,8 @@ function HeroBanner({ onShop }) {
   const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
-    // Usar fetch directo igual que el resto del proyecto
-    const url = `${process.env.REACT_APP_SUPABASE_URL}/rest/v1/settings?key=eq.banner_images&select=value&limit=1`;
-    const key = process.env.REACT_APP_SUPABASE_ANON_KEY;
-    fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data[0]?.value) {
-          try { setImgs(JSON.parse(data[0].value)); } catch (e) {}
-        }
-      })
-      .catch(() => {}); // Si la tabla no existe, muestra fondo rosa
+    // Banner gestionado desde el panel admin via URLs directas.
+    // Sin imágenes configuradas, se muestra fondo rosa por defecto.
   }, []);
 
   useEffect(() => {
