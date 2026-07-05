@@ -26,18 +26,8 @@ const COLOR_OPTIONS = [
   { name: "Light Brown", hex: "rgba(65, 47, 37, 0.86)" },
 ];
 
-async function uploadToSupabase(file, onProgress) {
-  const fileName = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
-  onProgress(30);
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": file.type, "x-upsert": "true" },
-    body: file,
-  });
-  if (!res.ok) throw new Error((await res.json()).message || "Error al subir imagen");
-  onProgress(100);
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
-}
+// Subida de imágenes: se usa URL directa (ej: S3 en producción).
+// La función de upload a Supabase fue eliminada al migrar al backend propio.
 
 function TagInput({ tags, onChange, placeholder }) {
   const [val, setVal] = useState("");
@@ -71,47 +61,38 @@ function TagInput({ tags, onChange, placeholder }) {
 }
 
 function ImageUploader({ onUploaded }) {
-  const [progress, setProgress] = useState(0);
-  const [uploading, setUploading] = useState(false);
+  const [url, setUrl] = useState("");
   const [error, setError] = useState("");
-  const inputRef = useRef();
 
-  const handleFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setError("La imagen debe ser menor a 5MB"); return; }
-    setError(""); setUploading(true); setProgress(10);
-    try {
-      const url = await uploadToSupabase(file, setProgress);
-      onUploaded(url);
-    } catch (err) { setError(`Error: ${err.message}`); } 
-    finally { setUploading(false); setProgress(0); e.target.value = null; }
+  const handleAdd = () => {
+    const trimmed = url.trim();
+    if (!trimmed) { setError("Ingresa una URL válida"); return; }
+    if (!trimmed.startsWith("http")) { setError("La URL debe comenzar con http:// o https://"); return; }
+    onUploaded(trimmed);
+    setUrl("");
+    setError("");
   };
 
   return (
     <div>
-      <div onClick={() => !uploading && inputRef.current.click()} style={{
-        border: "2px dashed var(--border)", borderRadius: 12, padding: "1rem",
-        textAlign: "center", cursor: uploading ? "default" : "pointer",
-        background: "var(--pink-light)", minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "center"
-      }}>
-        {uploading ? (
-          <div>
-            <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>subiendo</div>
-            <div style={{ fontSize: "0.85rem", color: "var(--gray)", marginBottom: 8 }}>Subiendo... {progress}%</div>
-            <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: "var(--pink-dark)", transition: "width .3s" }} />
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: "2rem", marginBottom: 6 }}>+</div>
-            <div style={{ fontSize: "0.85rem", color: "var(--gray)" }}>Clic para subir nueva imagen</div>
-          </div>
-        )}
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          className="form-input"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://ejemplo.com/imagen.jpg"
+          onKeyDown={e => e.key === "Enter" && handleAdd()}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          style={{ background: "var(--dark)", color: "white", border: "none", padding: "0 16px", borderRadius: 8, cursor: "pointer", flexShrink: 0, fontFamily: "var(--font)", fontSize: "0.85rem" }}
+        >Agregar</button>
       </div>
       {error && <p style={{ color: "var(--danger)", fontSize: "0.82rem", marginTop: 6 }}>{error}</p>}
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
+      <p style={{ color: "var(--gray)", fontSize: "0.75rem", marginTop: 6 }}>
+        Pega la URL pública de la imagen (AWS S3, Cloudinary, etc.)
+      </p>
     </div>
   );
 }
@@ -417,95 +398,29 @@ function OrderForm({ products, onSave, onCancel, isMobile }) {
 // ============ BANNER PANEL ============
 function BannerPanel({ showToast }) {
   const [bannerImgs, setBannerImgs] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const inputRef = useRef();
+  const [newUrl, setNewUrl] = useState("");
 
-  const API = process.env.REACT_APP_SUPABASE_URL + "/rest/v1";
-  const KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
-  const token = localStorage.getItem("admin_token") || KEY;
-  const headers = { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-
-  useEffect(() => { loadBanner(); }, []);
-
-  const loadBanner = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/settings?key=eq.banner_images&select=value&limit=1`, { headers });
-      const data = await res.json();
-      if (Array.isArray(data) && data[0]?.value) {
-        try { setBannerImgs(JSON.parse(data[0].value)); } catch (e) {}
-      }
-    } catch (e) {}
-    setLoading(false);
+  const handleAdd = () => {
+    const trimmed = newUrl.trim();
+    if (!trimmed) return;
+    if (bannerImgs.length >= 3) { showToast("Máximo 3 imágenes en el banner"); return; }
+    if (!trimmed.startsWith("http")) { showToast("La URL debe comenzar con http:// o https://"); return; }
+    setBannerImgs(p => [...p, trimmed]);
+    setNewUrl("");
+    showToast("Imagen añadida al banner");
   };
 
-  const saveBanner = async (imgs) => {
-    const value = JSON.stringify(imgs);
-    const checkRes = await fetch(`${API}/settings?key=eq.banner_images&select=key&limit=1`, { headers });
-    const existing = await checkRes.json();
-    let res;
-    if (Array.isArray(existing) && existing.length > 0) {
-      res = await fetch(`${API}/settings?key=eq.banner_images`, {
-        method: "PATCH",
-        headers: { ...headers, Prefer: "return=representation" },
-        body: JSON.stringify({ value }),
-      });
-    } else {
-      res = await fetch(`${API}/settings`, {
-        method: "POST",
-        headers: { ...headers, Prefer: "return=representation" },
-        body: JSON.stringify({ key: "banner_images", value }),
-      });
-    }
-    return res.ok;
+  const handleRemove = (idx) => {
+    setBannerImgs(p => p.filter((_, i) => i !== idx));
+    showToast("Imagen eliminada del banner");
   };
 
-  const handleUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    const remaining = 3 - bannerImgs.length;
-    if (remaining <= 0) { showToast("Máximo 3 imágenes en el banner"); return; }
-    const toUpload = files.slice(0, remaining);
-    setUploading(true);
-    try {
-      const urls = [];
-      for (const file of toUpload) {
-        const fileName = `banner_${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
-        const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/storage/v1/object/products/${fileName}`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${KEY}`, "Content-Type": file.type, "x-upsert": "true" },
-          body: file,
-        });
-        if (!res.ok) throw new Error("Error subiendo imagen");
-        urls.push(`${process.env.REACT_APP_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`);
-      }
-      const newImgs = [...bannerImgs, ...urls];
-      setBannerImgs(newImgs);
-      const ok = await saveBanner(newImgs);
-      if (ok) showToast(`${urls.length} imagen(es) añadida(s) al banner`);
-      else showToast("Error al guardar. ¿Creaste la tabla settings?");
-    } catch (err) {
-      showToast("Error: " + err.message);
-    }
-    setUploading(false);
-    e.target.value = "";
-  };
-
-  const handleRemove = async (idx) => {
-    const newImgs = bannerImgs.filter((_, i) => i !== idx);
-    setBannerImgs(newImgs);
-    const ok = await saveBanner(newImgs);
-    if (ok) showToast("Imagen eliminada del banner");
-  };
-
-  const handleMove = async (idx, dir) => {
+  const handleMove = (idx, dir) => {
     const newImgs = [...bannerImgs];
     const target = idx + dir;
     if (target < 0 || target >= newImgs.length) return;
     [newImgs[idx], newImgs[target]] = [newImgs[target], newImgs[idx]];
     setBannerImgs(newImgs);
-    await saveBanner(newImgs);
   };
 
   return (
@@ -515,26 +430,35 @@ function BannerPanel({ showToast }) {
           <h2 className="serif" style={{ fontSize: "1.7rem", margin: 0 }}>Banner principal</h2>
           <p style={{ color: "var(--gray)", fontSize: "0.85rem", marginTop: 4 }}>Máximo 3 imágenes. Rotan automáticamente en la tienda.</p>
         </div>
-        {bannerImgs.length < 3 && (
-          <button onClick={() => inputRef.current?.click()} disabled={uploading}
-            style={{ background: "var(--dark)", color: "white", border: "none", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontSize: "0.88rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, opacity: uploading ? 0.6 : 1 }}>
-            {uploading ? "Subiendo..." : `+ Agregar imagen (${bannerImgs.length}/3)`}
-          </button>
-        )}
-        <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: "none" }} />
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "3rem", color: "var(--gray)" }}>Cargando...</div>
-      ) : bannerImgs.length === 0 ? (
-        <div onClick={() => inputRef.current?.click()}
-          style={{ border: "2px dashed var(--border)", borderRadius: 16, padding: "4rem", textAlign: "center", cursor: "pointer", background: "white" }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = "var(--dark)"}
-          onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
-        >
+      {bannerImgs.length < 3 && (
+        <div style={{ background: "white", borderRadius: 12, border: "1px solid var(--border)", padding: "1.25rem", marginBottom: "1.5rem" }}>
+          <label className="form-label">Agregar imagen por URL ({bannerImgs.length}/3)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              className="form-input"
+              value={newUrl}
+              onChange={e => setNewUrl(e.target.value)}
+              placeholder="https://ejemplo.com/banner.jpg"
+              onKeyDown={e => e.key === "Enter" && handleAdd()}
+            />
+            <button
+              onClick={handleAdd}
+              style={{ background: "var(--dark)", color: "white", border: "none", padding: "0 16px", borderRadius: 8, cursor: "pointer", flexShrink: 0, fontFamily: "var(--font)", fontSize: "0.85rem" }}
+            >+ Agregar</button>
+          </div>
+          <p style={{ color: "var(--gray)", fontSize: "0.75rem", marginTop: 6 }}>
+            Pega la URL pública de la imagen (AWS S3, Cloudinary, etc.)
+          </p>
+        </div>
+      )}
+
+      {bannerImgs.length === 0 ? (
+        <div style={{ border: "2px dashed var(--border)", borderRadius: 16, padding: "4rem", textAlign: "center", background: "white" }}>
           <div style={{ fontSize: "3rem", marginBottom: 12 }}>🖼️</div>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No hay imágenes en el banner</div>
-          <div style={{ color: "var(--gray)", fontSize: "0.85rem" }}>Haz clic para subir hasta 3 imágenes</div>
+          <div style={{ color: "var(--gray)", fontSize: "0.85rem" }}>Agrega URLs de imágenes usando el campo de arriba</div>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
@@ -556,16 +480,6 @@ function BannerPanel({ showToast }) {
               </div>
             </div>
           ))}
-          {bannerImgs.length < 3 && (
-            <div onClick={() => inputRef.current?.click()}
-              style={{ border: "2px dashed var(--border)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", minHeight: 180, background: "white" }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = "var(--dark)"}
-              onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
-            >
-              <span style={{ fontSize: "2rem" }}>+</span>
-              <span style={{ fontSize: "0.82rem", color: "var(--gray)" }}>Agregar imagen</span>
-            </div>
-          )}
         </div>
       )}
 
