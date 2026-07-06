@@ -53,7 +53,7 @@ describe("ProductService", () => {
     mockPool.query.mockResolvedValue({ rows: [fila] });
 
     const result = await service.create({
-      name: "Vestido Rosa", category: "Tops", price: 59.90, stock: 10,
+      name: "Vestido Rosa", category: "Tops", price: 59.9, stock: 10,
     });
 
     expect(mockPool.query).toHaveBeenCalledTimes(1);

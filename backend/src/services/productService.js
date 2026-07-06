@@ -21,7 +21,7 @@ class ProductService {
     if (price === undefined || price === null || price === "") {
       throw new Error("El precio es obligatorio");
     }
-    if (parseFloat(price) <= 0) {
+    if (Number.parseFloat(price) <= 0) {
       throw new Error("El precio debe ser mayor a 0");
     }
   }
@@ -31,9 +31,9 @@ class ProductService {
     return {
       ...p,
       cat:        p.category,
-      price:      p.price      != null ? parseFloat(p.price)      : 0,
-      sale_price: p.sale_price != null ? parseFloat(p.sale_price) : null,
-      stock:      p.stock      != null ? parseInt(p.stock, 10)    : 0,
+      price:      p.price      == null ? 0    : Number.parseFloat(p.price),
+      sale_price: p.sale_price == null ? null : Number.parseFloat(p.sale_price),
+      stock:      p.stock      == null ? 0    : Number.parseInt(p.stock, 10),
     };
   }
 
@@ -55,8 +55,8 @@ class ProductService {
       [
         String(name).trim(),
         description || "",
-        parseFloat(price),
-        parseInt(stock, 10) || 0,
+        Number.parseFloat(price),
+        Number.parseInt(stock, 10) || 0,
         image_url || null,
         String(category).trim(),
       ]
@@ -64,18 +64,50 @@ class ProductService {
     return this._normalize(rows[0]);
   }
 
-  // ── Actualizar producto ───────────────────────────────────
+  // ── Transformar/validar un campo del PATCH parcial ────────
+  // Devuelve el valor listo para persistir. Lanza error si el
+  // campo no cumple las reglas de negocio.
+  _transformUpdateField(key, value) {
+    switch (key) {
+      case "name":
+        if (!String(value).trim()) throw new Error("El nombre es obligatorio");
+        return String(value).trim();
+      case "category":
+        if (!String(value).trim()) throw new Error("La categoría es obligatoria");
+        return String(value).trim();
+      case "price":
+        if (Number.parseFloat(value) <= 0) throw new Error("El precio debe ser mayor a 0");
+        return Number.parseFloat(value);
+      case "stock":
+        return Number.parseInt(value, 10) || 0;
+      default:
+        return value;
+    }
+  }
+
+  // ── Actualizar producto (PATCH parcial) ───────────────────
+  // Solo se actualizan los campos presentes en `data`. Así un
+  // PATCH parcial no sobrescribe con NULL los campos ausentes.
   async update(id, data) {
     if (!id) throw new Error("El ID es obligatorio");
-    if (data.price !== undefined && parseFloat(data.price) <= 0) {
-      throw new Error("El precio debe ser mayor a 0");
+
+    const allowed = ["name", "description", "price", "stock", "image_url", "category"];
+    const fields  = [];
+    const values  = [];
+
+    for (const key of allowed) {
+      if (data[key] === undefined) continue;
+      const value = this._transformUpdateField(key, data[key]);
+      fields.push(`${key}=$${fields.length + 1}`);
+      values.push(value);
     }
-    const { name, description, price, stock, image_url, category } = data;
+
+    if (fields.length === 0) throw new Error("No hay campos para actualizar");
+
+    values.push(id);
     const { rows } = await this.pool.query(
-      `UPDATE products
-       SET name=$1, description=$2, price=$3, stock=$4, image_url=$5, category=$6
-       WHERE id=$7 RETURNING *`,
-      [name, description, price, stock, image_url, category, id]
+      `UPDATE products SET ${fields.join(", ")} WHERE id=$${values.length} RETURNING *`,
+      values
     );
     if (rows.length === 0) throw new Error("Producto no encontrado");
     return this._normalize(rows[0]);
