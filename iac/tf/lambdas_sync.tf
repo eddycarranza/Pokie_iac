@@ -27,6 +27,11 @@ resource "aws_lambda_function" "sync" {
   timeout          = 10
   memory_size      = 256
 
+  # Optimización de costos: Graviton2 (ARM64) es un 20 % más barato que x86_64
+  # y generalmente más rápido para workloads Node.js stateless. nodejs20.x es
+  # compatible con arm64 sin cambios de código.
+  architectures = ["arm64"]
+
   # Publica una versión inmutable en cada cambio de código. Necesario para que
   # el alias apunte a una versión concreta y poder usar Provisioned Concurrency.
   publish = true
@@ -41,8 +46,9 @@ resource "aws_lambda_function" "sync" {
 
   environment {
     variables = {
-      DB_SECRET_ARN = aws_secretsmanager_secret.db_credentials.arn
-      NODE_ENV      = var.environment
+      DB_SECRET_ARN   = aws_secretsmanager_secret.db_credentials.arn
+      MP_SECRET_ARN   = aws_secretsmanager_secret.mp_access_token.arn
+      NODE_ENV        = var.environment
     }
   }
 

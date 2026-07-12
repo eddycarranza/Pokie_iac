@@ -10,6 +10,7 @@ const authRoutes    = require("./routes/auth");
 const productRoutes = require("./routes/products");
 const orderRoutes   = require("./routes/orders");
 const expenseRoutes = require("./routes/expenses");
+const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
@@ -28,10 +29,11 @@ app.use(express.json());
 // Cada router se monta en DOS prefijos:
 //   /api/<x>  → como lo llama el frontend en docker-compose (Nginx local)
 //   /<x>      → como llega desde API Gateway (recurso /<x>/{proxy+} → Lambda)
-app.use(["/api/auth", "/auth"],         authRoutes);
-app.use(["/api/products", "/products"], productRoutes);
-app.use(["/api/orders", "/orders"],     orderRoutes);
-app.use(["/api/expenses", "/expenses"], expenseRoutes);
+app.use(["/api/auth", "/auth"],           authRoutes);
+app.use(["/api/products", "/products"],   productRoutes);
+app.use(["/api/orders", "/orders"],       orderRoutes);
+app.use(["/api/expenses", "/expenses"],   expenseRoutes);
+app.use(["/api/payments", "/payments"],   paymentRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get(["/health", "/api/health"], (req, res) => {

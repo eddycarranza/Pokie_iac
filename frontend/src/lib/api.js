@@ -111,6 +111,18 @@ export const deleteOrder = async (id) => {
   return handleResponse(res);
 };
 
+// ── Pagos (Culqi) ─────────────────────────────────────────────
+export const createCharge = async (chargeData) => {
+  const res = await fetch(`${API_URL}/payments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chargeData),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Error al procesar el pago");
+  return data;
+};
+
 // ── Egresos ───────────────────────────────────────────────────
 export const getExpenses = async () => {
   const res = await fetch(`${API_URL}/expenses`, { headers: getHeaders() });

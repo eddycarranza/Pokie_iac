@@ -46,6 +46,9 @@ resource "aws_lambda_function" "async" {
   timeout          = 30
   memory_size      = 256
 
+  # Optimización de costos: ARM64 (Graviton2) — 20 % más barato por GB-segundo.
+  architectures = ["arm64"]
+
   # Fix CKV_AWS_115: límite de concurrencia por función.
   reserved_concurrent_executions = 20
 

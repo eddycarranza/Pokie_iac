@@ -57,6 +57,20 @@ resource "aws_secretsmanager_secret" "db_credentials" {
   recovery_window_in_days = 7
 }
 
+# Access Token de MercadoPago (pasarela de pagos).
+# El valor real se setea manualmente en AWS Console o con:
+#   aws secretsmanager put-secret-value \
+#     --secret-id pokiecat-mp-access-token \
+#     --secret-string '{"access_token":"APP_USR-xxx"}'
+# Nunca se hardcodea aquí. Las Lambdas reciben el ARN vía env var
+# y leen el valor en runtime con GetSecretValue.
+resource "aws_secretsmanager_secret" "mp_access_token" {
+  name                    = "${var.project_name}-mp-access-token"
+  description             = "Access Token de MercadoPago para procesamiento de pagos con tarjeta"
+  kms_key_id              = aws_kms_key.main.arn
+  recovery_window_in_days = 7
+}
+
 resource "aws_secretsmanager_secret_version" "db_credentials" {
   secret_id = aws_secretsmanager_secret.db_credentials.id
   secret_string = jsonencode({
