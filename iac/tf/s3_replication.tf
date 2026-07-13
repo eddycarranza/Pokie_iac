@@ -63,7 +63,7 @@ resource "aws_s3_bucket" "replica" {
   for_each = local.replicated_buckets
   provider = aws.replica
 
-  bucket = "${var.project_name}-${each.key}-replica"
+  bucket = "${var.project_name}-${replace(each.key, "_", "-")}-replica"
 }
 
 # ─────────────────────────────────────────────
@@ -419,7 +419,7 @@ resource "aws_iam_role_policy" "s3_replication" {
 resource "aws_s3_bucket_replication_configuration" "frontend" {
   bucket     = aws_s3_bucket.frontend.id
   role       = aws_iam_role.s3_replication.arn
-  depends_on = [aws_s3_bucket_versioning.frontend]
+  depends_on = [aws_s3_bucket_versioning.frontend, aws_s3_bucket_versioning.replica]
 
   rule {
     id     = "replicate-to-${var.replica_region}"
@@ -445,7 +445,7 @@ resource "aws_s3_bucket_replication_configuration" "frontend" {
 resource "aws_s3_bucket_replication_configuration" "access_logs" {
   bucket     = aws_s3_bucket.access_logs.id
   role       = aws_iam_role.s3_replication.arn
-  depends_on = [aws_s3_bucket_versioning.access_logs]
+  depends_on = [aws_s3_bucket_versioning.access_logs, aws_s3_bucket_versioning.replica]
 
   rule {
     id     = "replicate-to-${var.replica_region}"
@@ -471,7 +471,7 @@ resource "aws_s3_bucket_replication_configuration" "access_logs" {
 resource "aws_s3_bucket_replication_configuration" "canary_artifacts" {
   bucket     = aws_s3_bucket.canary_artifacts.id
   role       = aws_iam_role.s3_replication.arn
-  depends_on = [aws_s3_bucket_versioning.canary_artifacts]
+  depends_on = [aws_s3_bucket_versioning.canary_artifacts, aws_s3_bucket_versioning.replica]
 
   rule {
     id     = "replicate-to-${var.replica_region}"
@@ -497,7 +497,7 @@ resource "aws_s3_bucket_replication_configuration" "canary_artifacts" {
 resource "aws_s3_bucket_replication_configuration" "cloudtrail_logs" {
   bucket     = aws_s3_bucket.cloudtrail_logs.id
   role       = aws_iam_role.s3_replication.arn
-  depends_on = [aws_s3_bucket_versioning.cloudtrail_logs]
+  depends_on = [aws_s3_bucket_versioning.cloudtrail_logs, aws_s3_bucket_versioning.replica]
 
   rule {
     id     = "replicate-to-${var.replica_region}"

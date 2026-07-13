@@ -7,6 +7,8 @@ const pool = new Pool({
   database: process.env.DB_NAME     || "pokiecat",
   user:     process.env.DB_USER     || "postgres",
   password: process.env.DB_PASSWORD || "postgres",
+  // SSL requerido por RDS; desactivado en local (sin DB_HOST)
+  ssl: process.env.DB_HOST ? { rejectUnauthorized: false } : false,
 });
 
 // Verificar conexión al iniciar

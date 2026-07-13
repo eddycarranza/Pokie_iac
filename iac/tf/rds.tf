@@ -14,7 +14,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier     = "${var.project_name}-db"
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15"
   instance_class = "db.t3.medium"
 
   allocated_storage = 50
@@ -33,9 +33,8 @@ resource "aws_db_instance" "postgres" {
 
   backup_retention_period   = 7
   backup_window             = "02:00-03:00"
-  deletion_protection       = true
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project_name}-db-final-snapshot"
+  deletion_protection       = false   # demo: desactivado para poder hacer destroy limpio
+  skip_final_snapshot       = true    # demo: sin snapshot final para que destroy sea rapido
   copy_tags_to_snapshot     = true
 
   # Fix CKV_AWS_226: aplicar parches menores automáticamente.

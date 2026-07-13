@@ -65,6 +65,66 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 }
 
+# ─────────────────────────────────────────────
+# Route Tables
+# ─────────────────────────────────────────────
+
+# Subnet pública → Internet Gateway (para NAT y ALB)
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+# Subnets privadas → NAT Gateway (para Lambdas y RDS → internet saliente)
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-private-rt"
+  }
+}
+
+resource "aws_route_table_association" "private_a" {
+  subnet_id      = aws_subnet.private_a.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_b" {
+  subnet_id      = aws_subnet.private_b.id
+  route_table_id = aws_route_table.private.id
+}
+
+# VPC Gateway Endpoint para S3 — Lambda en VPC descarga el código
+# directamente desde S3 sin pasar por NAT (más rápido y sin costo extra).
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private.id]
+
+  tags = {
+    Name = "${var.project_name}-s3-endpoint"
+  }
+}
+
 # Fix CKV2_AWS_11 / CKV_AWS_FLOW_LOGS: VPC Flow Logs para auditar tráfico
 # de red, requerido para trazabilidad de seguridad (RFN de observabilidad).
 resource "aws_flow_log" "main" {

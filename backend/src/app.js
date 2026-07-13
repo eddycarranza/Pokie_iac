@@ -20,7 +20,12 @@ app.disable("x-powered-by");
 
 // ── Middlewares ──────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: [
+    "https://d237df1vs9q6zf.cloudfront.net",
+    "http://localhost:3000",
+    "http://localhost:4000",
+    process.env.FRONTEND_URL,
+  ].filter(Boolean),
   credentials: true,
 }));
 app.use(express.json());

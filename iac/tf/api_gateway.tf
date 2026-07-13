@@ -23,7 +23,32 @@ resource "aws_api_gateway_authorizer" "jwt" {
   identity_source = "method.request.header.Authorization"
 }
 
+# Rol IAM que permite a API Gateway escribir logs en CloudWatch.
+# Debe configurarse a nivel de cuenta antes de habilitar logging en cualquier stage.
+resource "aws_iam_role" "api_gateway_cloudwatch" {
+  name = "${var.project_name}-apigw-cloudwatch-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "apigateway.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
+  role       = aws_iam_role.api_gateway_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_api_gateway_account" "main" {
+  cloudwatch_role_arn = aws_iam_role.api_gateway_cloudwatch.arn
+}
+
 resource "aws_api_gateway_stage" "prod" {
+  depends_on    = [aws_api_gateway_account.main]
   deployment_id = aws_api_gateway_deployment.main.id
   rest_api_id   = aws_api_gateway_rest_api.main.id
   stage_name    = var.environment
@@ -35,9 +60,6 @@ resource "aws_api_gateway_stage" "prod" {
   # solo acepte llamadas del backend/CloudFront que presenten este cert
   # (mTLS hacia el origin).
   client_certificate_id = aws_api_gateway_client_certificate.main.id
-
-  # Fix CKV2_AWS_77: asociar el WAF regional directamente en el stage
-  web_acl_arn = aws_wafv2_web_acl.api_gateway.arn
 
   # Fix CKV_AWS_120: habilitar caché en el stage para reducir latencia
   # y carga sobre las Lambdas backend.

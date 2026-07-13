@@ -105,10 +105,10 @@ resource "aws_synthetics_canary" "health_check" {
   execution_role_arn   = aws_iam_role.canary_role.arn
   handler              = "canary.handler"
   zip_file             = data.archive_file.canary_placeholder.output_path
-  runtime_version      = "syn-nodejs-puppeteer-7.0"
+  runtime_version      = "syn-nodejs-puppeteer-9.1"
 
   schedule {
-    expression = "rate(30 seconds)"
+    expression = "rate(1 minute)"
   }
 }
 
@@ -264,19 +264,36 @@ resource "aws_cloudwatch_dashboard" "business" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type = "metric"
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
         properties = {
           title   = "Pedidos por hora"
-          metrics = [["AWS/SQS", "NumberOfMessagesSent", "QueueName", aws_sqs_queue.orders.name]]
+          region  = var.aws_region
+          stat    = "Sum"
           period  = 3600
+          view    = "timeSeries"
+          metrics = [["AWS/SQS", "NumberOfMessagesSent", "QueueName", aws_sqs_queue.orders.name]]
         }
       },
       {
-        type = "metric"
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
         properties = {
           title   = "Errores y latencia API"
-          metrics = [["AWS/ApiGateway", "5XXError"], ["AWS/ApiGateway", "Latency"]]
+          region  = var.aws_region
+          stat    = "Average"
           period  = 60
+          view    = "timeSeries"
+          metrics = [
+            ["AWS/ApiGateway", "5XXError", "ApiName", aws_api_gateway_rest_api.main.name],
+            ["AWS/ApiGateway", "Latency", "ApiName", aws_api_gateway_rest_api.main.name]
+          ]
         }
       }
     ]

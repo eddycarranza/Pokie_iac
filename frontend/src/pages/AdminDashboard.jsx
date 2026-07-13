@@ -572,10 +572,12 @@ export default function AdminDashboard() {
 
   const handleSaveProduct = async (data) => {
     const productData = {
-      name: data.name, cat: data.cat, price: data.price, sale_price: data.salePrice || null,
+      name: data.name, category: data.cat, price: data.price, sale_price: data.salePrice || null,
       description: data.description || "", badge: data.badge || null,
-      sizes: data.sizes || [], colors: data.colors || [], 
-      image_urls: data.imageUrls || [], stock: data.stock || 0,
+      sizes: data.sizes || [], colors: data.colors || [],
+      image_urls: data.imageUrls || [],
+      image_url: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls[0] : null,
+      stock: data.stock || 0,
       variants: data.variants || [],
       shipping_message: data.shipping_message || null,
       featured: data.featured || false,

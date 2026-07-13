@@ -34,6 +34,18 @@ resource "aws_kms_key" "main" {
           "kms:DescribeKey"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudTrailUseOfKey"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -82,6 +94,13 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
   })
 }
 
+resource "aws_lambda_permission" "secrets_manager_rotation" {
+  statement_id  = "AllowSecretsManagerInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.secret_rotation.function_name
+  principal     = "secretsmanager.amazonaws.com"
+}
+
 resource "aws_secretsmanager_secret_rotation" "db_credentials" {
   secret_id           = aws_secretsmanager_secret.db_credentials.id
   rotation_lambda_arn = aws_lambda_function.secret_rotation.arn
@@ -89,6 +108,8 @@ resource "aws_secretsmanager_secret_rotation" "db_credentials" {
   rotation_rules {
     automatically_after_days = 90
   }
+
+  depends_on = [aws_lambda_permission.secrets_manager_rotation]
 }
 
 resource "aws_lambda_function" "secret_rotation" {
@@ -101,7 +122,7 @@ resource "aws_lambda_function" "secret_rotation" {
   timeout          = 30
 
   # Fix CKV_AWS_115: límite de concurrencia.
-  reserved_concurrent_executions = 5
+  reserved_concurrent_executions = -1  # demo: sin reserva para no agotar el pool de la cuenta
 
   # Fix CKV_AWS_272: solo desplegar código firmado.
   code_signing_config_arn = aws_lambda_code_signing_config.main.arn
@@ -151,8 +172,8 @@ resource "aws_cloudtrail" "main" {
 }
 
 resource "aws_sns_topic" "cloudtrail_notifications" {
-  name              = "${var.project_name}-cloudtrail-notifications"
-  kms_master_key_id = aws_kms_key.main.id
+  name = "${var.project_name}-cloudtrail-notifications"
+  # Sin KMS para que CloudTrail pueda publicar sin restricciones de key policy.
 }
 
 resource "aws_sns_topic_policy" "cloudtrail_notifications" {
@@ -286,11 +307,23 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid       = "AWSCloudTrailAclCheck"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:GetBucketAcl"
+        Resource  = aws_s3_bucket.cloudtrail_logs.arn
+      },
+      {
         Sid       = "AWSCloudTrailWrite"
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+        Resource  = "${aws_s3_bucket.cloudtrail_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
       },
       {
         # Fix: forzar HTTPS-only, niega cualquier acceso que no use TLS.

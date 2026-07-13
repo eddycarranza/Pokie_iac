@@ -66,10 +66,26 @@ resource "aws_iam_role_policy" "lambda_basic" {
         Resource = aws_secretsmanager_secret.db_credentials.arn
       },
       {
-        Sid      = "SendToOrdersQueue"
-        Effect   = "Allow"
-        Action   = ["sqs:SendMessage"]
-        Resource = aws_sqs_queue.orders.arn
+        Sid    = "SendToQueues"
+        Effect = "Allow"
+        Action = ["sqs:SendMessage"]
+        Resource = [
+          aws_sqs_queue.orders.arn,
+          aws_sqs_queue.orders_dlq.arn,
+        ]
+      },
+      {
+        Sid    = "ReceiveFromQueues"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = [
+          aws_sqs_queue.orders.arn,
+          aws_sqs_queue.orders_dlq.arn,
+        ]
       },
       {
         # ses:SendEmail/SendRawEmail no admiten restricción por ARN de

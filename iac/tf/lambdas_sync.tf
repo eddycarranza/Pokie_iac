@@ -65,7 +65,7 @@ resource "aws_lambda_function" "sync" {
     target_arn = aws_sqs_queue.orders_dlq.arn
   }
 
-  reserved_concurrent_executions = 50
+  reserved_concurrent_executions = -1  # demo: sin reserva para no agotar el pool de la cuenta
 
   tags = {
     Name = "${var.project_name}-${each.key}"

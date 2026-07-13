@@ -113,7 +113,7 @@ resource "aws_cloudwatch_dashboard" "performance" {
             [
               "AWS/ApiGateway",
               "IntegrationLatency",
-              "ApiId", aws_apigatewayv2_api.main.id,
+              "ApiName", aws_api_gateway_rest_api.main.name,
               { stat = "p99", label = "P99" }
             ]
           ]

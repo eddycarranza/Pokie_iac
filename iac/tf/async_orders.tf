@@ -50,7 +50,7 @@ resource "aws_lambda_function" "async" {
   architectures = ["arm64"]
 
   # Fix CKV_AWS_115: límite de concurrencia por función.
-  reserved_concurrent_executions = 20
+  reserved_concurrent_executions = -1  # demo: sin reserva para no agotar el pool de la cuenta
 
   # Fix CKV_AWS_272: solo desplegar código firmado por nuestro Signing Profile.
   code_signing_config_arn = aws_lambda_code_signing_config.main.arn
