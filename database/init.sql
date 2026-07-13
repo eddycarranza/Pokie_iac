@@ -72,7 +72,12 @@ INSERT INTO admin_users (email, password) VALUES (
 
 -- Productos de ejemplo
 INSERT INTO products (name, description, price, stock, category) VALUES
-  ('Gato Espacial', 'Figura de gato con traje de astronauta', 45.00, 20, 'figuras'),
-  ('Pokie Clásico', 'El muñeco original de Pokie Cat', 35.00, 50, 'muñecos'),
-  ('Taza Pokie', 'Taza cerámica con diseño exclusivo', 25.00, 30, 'accesorios')
+  ('Polo Gatuno',       'Polo oversize con estampado de gato kawaii',  45.00, 20, 'Tops'),
+  ('Top Pokie',         'Top cropped con bordado de Pokie Cat',         39.00, 15, 'Tops'),
+  ('Jean Kawaii',       'Jean con parche bordado de gatito',            65.00, 10, 'Partes de abajo'),
+  ('Falda Pokie',       'Falda plisada con estampado kawaii',           55.00, 12, 'Partes de abajo'),
+  ('Bolso Gatuno',      'Bolso mini con forma de gato',                 35.00, 25, 'Accesorios'),
+  ('Gorra Pokie',       'Gorra bordada con logo de Pookiecat',          28.00, 30, 'Accesorios'),
+  ('Zapatilla Kawaii',  'Zapatillas con diseño exclusivo de gatitos',   89.00,  8, 'Zapatos'),
+  ('Sandalia Pokie',    'Sandalia con hebilla en forma de gato',        75.00, 10, 'Zapatos')
 ON CONFLICT DO NOTHING;
