@@ -95,11 +95,12 @@ jobs:
 
       - name: Terraform Plan
         working-directory: iac/tf
-        run: terraform plan -no-color
+        run: terraform plan -no-color -input=false
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
 
   # ── 5. BUILD & PUSH — GHCR ───────────────────────────────
   build-push:
