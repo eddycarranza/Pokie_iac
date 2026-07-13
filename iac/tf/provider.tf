@@ -11,6 +11,14 @@ terraform {
       version = "~> 2.4"
     }
   }
+
+  # Backend remoto en S3 — permite que el pipeline de CI/CD y cualquier
+  # máquina con credenciales AWS acceda al state sin necesidad de archivos locales.
+  backend "s3" {
+    bucket = "pokiecat-terraform-state-464809987999"
+    key    = "terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 provider "aws" {
