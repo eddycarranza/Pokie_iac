@@ -1,6 +1,6 @@
 # Pokie Cat — Infraestructura como Código
 
-E-commerce de ropa con arquitectura serverless en AWS, desplegada con Terraform. Incluye entorno local completo con Docker Compose para desarrollo y pruebas.
+E-commerce de ropa con arquitectura serverless en AWS, desplegada con Terraform. Incluye entorno local completo con Docker Compose para desarrollo y pruebas, pipeline CI/CD con GitHub Actions, análisis de seguridad IaC con Checkov y monitoreo en tiempo real con Grafana Cloud + Loki.
 
 ## Arquitectura local (Docker Compose)
 
@@ -68,7 +68,55 @@ docker compose up --build frontend
 
 # Correr análisis de seguridad Checkov
 docker run --rm -v ./iac/tf:/tf bridgecrew/checkov:3 --directory /tf --compact
+
+# Ejecutar pruebas unitarias
+cd backend && npm test
 ```
+
+## CI/CD Pipeline (GitHub Actions)
+
+El pipeline se activa en cada push a `main` o Pull Request y ejecuta 5 jobs:
+
+| Job | Herramienta | Descripción |
+|-----|-------------|-------------|
+| `test` | Jest | 25 pruebas unitarias (ProductService, PaymentService, edge cases) |
+| `sonarqube` | SonarCloud | Análisis estático de calidad y cobertura de código |
+| `checkov` | Checkov | Escaneo de seguridad IaC — 486 checks sobre Terraform |
+| `terraform` | Terraform | `init` + `validate` + `plan` de la infraestructura AWS |
+| `build-push` | Docker + GHCR | Build paralelo de imágenes backend y frontend → GitHub Container Registry |
+
+## Pruebas Unitarias
+
+```bash
+cd backend
+npm test
+```
+
+- **25 tests passing** distribuidos en 4 suites
+- `product.service.test.js` — CRUD de productos con mock de pg Pool
+- `payment.service.test.js` — integración MercadoPago con SDK mockeado
+- `product.edge.test.js` — 10 casos borde (IDs inválidos, DB caída, inputs vacíos)
+- `product.update.test.js` — update() y remove() con verificación de filas afectadas
+
+## Monitoreo (Grafana Cloud + Loki)
+
+Los logs de la aplicación se envían a **Grafana Cloud** vía Loki Push API y se visualizan en un dashboard con 7 paneles:
+
+- **Nivel de alertas** — distribución INFO / WARN / ERROR
+- **Métodos HTTP** — GET / POST / PUT / DELETE por volumen
+- **Accesos por usuario** — logins por cada integrante del equipo
+- **Tipo de acceso** — Login OK / Logout / Refresh Token / Token Expirado / Login Fail
+- **Operaciones DB** — Query / Pool / Error en base de datos
+
+Los generadores de logs se encuentran en `monitoring/Logs-Generator/`.
+
+## Seguridad IaC — Checkov
+
+```
+Passed checks: 486 / 486   |   Failed: 0   |   Skipped: 4
+```
+
+Resultado del escaneo sobre `iac/tf/` con el framework Terraform. Los checks cubren configuración de KMS, S3, RDS, IAM, VPC, WAF, CloudFront, entre otros.
 
 ## Estructura del proyecto
 
@@ -91,6 +139,7 @@ Pokie_iac/
 │   │   ├── db.js              # conexión PostgreSQL (pool)
 │   │   ├── app.js             # configuración Express
 │   │   └── index.js           # punto de entrada
+│   ├── test/                  # Jest — 25 pruebas unitarias
 │   └── Dockerfile
 │
 ├── database/
@@ -112,20 +161,18 @@ Pokie_iac/
 │       ├── security_secrets.tf# KMS + Secrets Manager
 │       ├── monitoring.tf      # CloudWatch + SNS + Synthetics Canary
 │       ├── route53.tf         # DNS
-│       ├── am.tf              # IAM roles y políticas
+│       ├── iam.tf             # IAM roles y políticas
 │       └── variables.tf       # variables del proyecto
 │
-├── ansible/                   # Automatización de despliegue
-│   ├── playbooks/             # deploy_frontend, deploy_lambdas, init_database
-│   ├── inventory.ini
-│   └── ansible.cfg
+├── monitoring/                # Stack de monitoreo
+│   ├── Logs-Generator/        # Generadores de logs (api-gen.js, login-gen.js, db-gen.js)
+│   ├── logs/                  # Archivos de log locales (app.log, login.log, dataBase.log)
+│   ├── loki-pusher.js         # Envío de logs a Grafana Cloud vía Loki Push API
+│   └── pokiecat-dashboard.json# Dashboard Grafana con 7 paneles
 │
-├── monitoring/                # Stack de monitoreo local
-│   ├── docker-compose.yml     # Prometheus + Grafana
-│   └── prometheus.yml
-│
-├── sonarqube-lab/             # Análisis de calidad de código local
-│   └── docker-compose.yml     # SonarQube + SonarScanner
+├── .github/
+│   └── workflows/
+│       └── build.yml          # Pipeline CI/CD — 5 jobs
 │
 ├── sonar-project.properties   # configuración SonarCloud CI
 ├── docker-compose.yml         # entorno local completo
@@ -135,16 +182,18 @@ Pokie_iac/
 ## Ramas y flujo de trabajo
 
 ```
-feature/checkov  →  PR  →  main
+feature/provisioning  →  main   (infraestructura base AWS)
+feature/checkov       →  main   (correcciones de seguridad IaC)
+feature/testing       →  main   (pruebas unitarias Jest)
 ```
 
-Cada fix de Checkov va en `feature/checkov`, se abre PR y se espera que SonarCloud pase antes de mergear.
+Los commits siguen la convención **Conventional Commits** (`feat:`, `fix:`, `ci:`, `test:`, `docs:`).
 
 ## Contributors
 
-| Usuario | Rol |
-|--------|-----|
-| [@eddycarranza](https://github.com/eddycarranza) | Infraestructura & Backend |
-| [@RenzoCf](https://github.com/RenzoCf) | Infraestructura & Backend |
-| [@rg727876-hub](https://github.com/rg727876-hub) | Infraestructura & Backend |
-| [@Ferchitoide](https://github.com/Ferchitoide) | Infraestructura & Backend |
+| Integrante | GitHub | Rol |
+|-----------|--------|-----|
+| Eddy Carranza | [@eddycarranza](https://github.com/eddycarranza) | Infraestructura & Backend |
+| Renzo Chávez | [@RenzoCf](https://github.com/RenzoCf) | Infraestructura & Backend |
+| Rodrigo García | [@rg727876-hub](https://github.com/rg727876-hub) | Infraestructura & Backend |
+| Fernando Monasterio | [@Ferchitoide](https://github.com/Ferchitoide) | Infraestructura & Backend |
